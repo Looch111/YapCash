@@ -26,3 +26,4 @@ node runner.js run-all
 # 5. Start 24/7 daemon
 node runner.js
 ```
+# YapCash
