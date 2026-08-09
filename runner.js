@@ -268,11 +268,6 @@ async function runAllAccounts(accounts) {
   }
 
   console.log("\n✅ All accounts processed.");
-
-  // Dispatch comprehensive Telegram Daily Report
-  await sendDailyReport({ accounts: reportAccounts }).catch(err => {
-    console.warn("⚠️ Failed to send Telegram daily report:", err.message);
-  });
 }
 
 async function runSingleAccount(accounts, targetId) {
