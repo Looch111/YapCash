@@ -268,6 +268,11 @@ async function runAllAccounts(accounts) {
   }
 
   console.log("\n✅ All accounts processed.");
+
+  // Dispatch short 3-line Telegram cycle summary
+  await sendDailyReport({ accounts: reportAccounts }).catch(err => {
+    console.warn("⚠️ Failed to send Telegram daily summary:", err.message);
+  });
 }
 
 async function runSingleAccount(accounts, targetId) {
