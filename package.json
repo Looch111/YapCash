@@ -1,0 +1,12 @@
+{
+  "name": "yapcash-multi-account-runner",
+  "version": "1.0.0",
+  "description": "Smart All-in-One Multi-Account Automation for YapCash",
+  "main": "runner.js",
+  "scripts": {
+    "start": "node runner.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
