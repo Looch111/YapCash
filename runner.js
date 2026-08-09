@@ -91,6 +91,18 @@ function formatDuration(ms) {
  * Continuous daemon scheduler loop.
  */
 async function runDaemonMode(initialAccounts) {
+  // Start HTTP health check server for cloud deployment platforms (Koyeb/Render)
+  try {
+    const http = require("http");
+    const PORT = process.env.PORT || 8000;
+    http.createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "online", daemon: "active", timestamp: new Date().toISOString() }));
+    }).listen(PORT, () => {
+      console.log(`🌐 Health check HTTP server active on port ${PORT}`);
+    });
+  } catch (_) {}
+
   console.log("\n=======================================================");
   console.log(" 🤖 YapCash Smart Daemon Mode Started");
   console.log("=======================================================");
