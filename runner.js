@@ -111,6 +111,9 @@ async function runDaemonMode(initialAccounts) {
   console.log("Press Ctrl+C to stop daemon.");
   console.log("=======================================================\n");
 
+  // Start background Telegram listener for 24/7 interactive pack commands & button polling
+  startTelegramPollingListener();
+
   let cycleCount = 1;
 
   while (true) {
