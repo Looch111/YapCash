@@ -249,9 +249,12 @@ async function runAllAccounts(accounts) {
       reportAccounts.push(accEntry);
 
       // Dispatch instant Telegram update for this specific account
-      await sendAccountReport(accEntry).catch(err => {
-        console.warn(`⚠️ Failed to send Telegram update for ${acc.accountId}:`, err.message);
-      });
+      const tgRes = await sendAccountReport(accEntry).catch(err => ({ ok: false, error: err.message }));
+      if (tgRes.ok) {
+        console.log(`  📱 Telegram notification sent for ${acc.accountId}`);
+      } else {
+        console.warn(`  ⚠️ Telegram notification failed for ${acc.accountId}: ${tgRes.error || tgRes.reason || "Unknown"}`);
+      }
 
     } catch (err) {
       console.error(`  ❌ Failed: ${err.message}`);
