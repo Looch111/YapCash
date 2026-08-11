@@ -515,5 +515,16 @@
     "giftCard": null,
     "message": "Pack open (standard): HTTP 404",
     "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T16:52:52.632Z",
+    "accountId": "unknown",
+    "email": "loochmane4@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
   }
 ]
