@@ -427,5 +427,93 @@
     "giftCard": null,
     "message": "Pack open (elite): insufficient_xp",
     "error": "insufficient_xp"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:08.647Z",
+    "accountId": "unknown",
+    "email": "loochmane4@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:41.672Z",
+    "accountId": "unknown",
+    "email": "loochmane4@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:44.650Z",
+    "accountId": "unknown",
+    "email": "manelooch38@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:46.894Z",
+    "accountId": "unknown",
+    "email": "manelooch4@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:48.940Z",
+    "accountId": "unknown",
+    "email": "angelavictor461@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:51.251Z",
+    "accountId": "unknown",
+    "email": "kadiri25.emmanuel@edouniversity.edu.ng",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:53.549Z",
+    "accountId": "unknown",
+    "email": "ogbu25.chinedu@edouniversity.edu.ng",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
+  },
+  {
+    "timestamp": "2026-08-11T15:49:55.973Z",
+    "accountId": "unknown",
+    "email": "tomisinbalogun8@gmail.com",
+    "packTier": "standard",
+    "status": "failed",
+    "xpAwarded": 0,
+    "giftCard": null,
+    "message": "Pack open (standard): HTTP 404",
+    "error": "HTTP 404"
   }
 ]
