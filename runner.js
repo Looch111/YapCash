@@ -52,8 +52,16 @@ async function main() {
       break;
 
     case "open-pack":
-      const packId = args[2] || "standard";
-      await runTaskForAccounts(accounts, args[1], (client) => openRewardPack(client, packId), `Open Pack (${packId})`);
+      let openTargetAcc = args[1];
+      let openPackTier = args[2] || "standard";
+
+      // If first parameter is a tier ('standard', 'rare', 'elite'), treat as tier for ALL accounts
+      if (openTargetAcc === "standard" || openTargetAcc === "rare" || openTargetAcc === "elite") {
+        openPackTier = openTargetAcc;
+        openTargetAcc = null;
+      }
+
+      await runTaskForAccounts(accounts, openTargetAcc, (client) => openRewardPack(client, openPackTier), `Open Pack (${openPackTier})`);
       break;
 
     case "help":
