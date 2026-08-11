@@ -2,7 +2,7 @@ try { require("dns").setDefaultResultOrder("ipv4first"); } catch (_) {}
 
 const { loadAccounts, updateAccountTokens } = require("./lib/accountManager");
 const SupabaseClient = require("./lib/supabaseClient");
-const { runFullDailyRoutine, claimDailyBonus, claimDailySpin, syncXp, openRewardPack } = require("./lib/apiTasks");
+const { runFullDailyRoutine, claimDailyBonus, claimDailySpin, claimWeekBonusCalendar, recoverUnclaimedGiftCards, syncXp, openRewardPack } = require("./lib/apiTasks");
 const { sendDailyReport, sendAccountReport, cleanupPreviousRoutineMessages, startTelegramPollingListener } = require("./lib/telegram");
 
 async function main() {
@@ -44,6 +44,15 @@ async function main() {
 
     case "bonus":
       await runTaskForAccounts(accounts, args[1], claimDailyBonus, "Daily Bonus");
+      break;
+
+    case "week-bonus":
+      const day = args[2] ? parseInt(args[2], 10) : null;
+      await runTaskForAccounts(accounts, args[1], (client) => claimWeekBonusCalendar(client, day), "Weekly Bonus Calendar");
+      break;
+
+    case "recover-cards":
+      await runTaskForAccounts(accounts, args[1], (client) => recoverUnclaimedGiftCards(client), "Gift Card Recovery");
       break;
 
     case "sync":
@@ -214,13 +223,22 @@ async function runAllAccounts(accounts) {
 
       const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
 
-      console.log(`  └─ Bonus: ${summary.dailyBonus.message}`);
-      console.log(`  └─ Spin:  ${summary.dailySpin.message}`);
+      if (summary.streakHeal?.currentStreak != null) {
+        console.log(`  └─ Streak: Reconciled (${summary.streakHeal.currentStreak} days)`);
+      }
+      console.log(`  └─ Bonus:  ${summary.dailyBonus.message}`);
+      console.log(`  └─ Spin:   ${summary.dailySpin.message}`);
+      if (summary.weekBonus) {
+        console.log(`  └─ Calendar: ${summary.weekBonus.message}`);
+      }
+      if (summary.recoveredCards && summary.recoveredCards.recoveredCount > 0) {
+        console.log(`  └─ Recovered: ${summary.recoveredCards.message}`);
+      }
       if (summary.xpSync) {
-        console.log(`  └─ Sync:  ${summary.xpSync.message}`);
+        console.log(`  └─ Sync:   ${summary.xpSync.message}`);
       }
       if (summary.packOpens && summary.packOpens.length > 0) {
-        summary.packOpens.forEach(p => console.log(`  └─ Pack:  ${p.message}`));
+        summary.packOpens.forEach(p => console.log(`  └─ Pack:   ${p.message}`));
       }
 
       // Record final user state after farming
@@ -246,6 +264,7 @@ async function runAllAccounts(accounts) {
         streak: finalState?.current_streak ?? initialState?.current_streak ?? "N/A",
         bonusAwarded: summary.dailyBonus?.awarded || 0,
         spinAwarded: summary.dailySpin?.awarded || 0,
+        weekBonusAwarded: summary.weekBonus?.xpAwarded || 0,
         packOpens: packResults,
       };
 
@@ -296,13 +315,22 @@ async function runSingleAccount(accounts, targetId) {
 
     const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
 
-    console.log(`  └─ Bonus: ${summary.dailyBonus.message}`);
-    console.log(`  └─ Spin:  ${summary.dailySpin.message}`);
+    if (summary.streakHeal?.currentStreak != null) {
+      console.log(`  └─ Streak: Reconciled (${summary.streakHeal.currentStreak} days)`);
+    }
+    console.log(`  └─ Bonus:  ${summary.dailyBonus.message}`);
+    console.log(`  └─ Spin:   ${summary.dailySpin.message}`);
+    if (summary.weekBonus) {
+      console.log(`  └─ Calendar: ${summary.weekBonus.message}`);
+    }
+    if (summary.recoveredCards && summary.recoveredCards.recoveredCount > 0) {
+      console.log(`  └─ Recovered: ${summary.recoveredCards.message}`);
+    }
     if (summary.xpSync) {
-      console.log(`  └─ Sync:  ${summary.xpSync.message}`);
+      console.log(`  └─ Sync:   ${summary.xpSync.message}`);
     }
     if (summary.packOpens && summary.packOpens.length > 0) {
-      summary.packOpens.forEach(p => console.log(`  └─ Pack:  ${p.message}`));
+      summary.packOpens.forEach(p => console.log(`  └─ Pack:   ${p.message}`));
     }
   } catch (err) {
     console.error(`  ❌ Failed: ${err.message}`);
@@ -341,10 +369,12 @@ Usage:
 Commands:
   daemon                    Run continuous background scheduler (auto-reschedules at 00:05 UTC)
   status                    Check authentication, XP, and streak status for all accounts
-  run-all                   Execute daily bonus, spin, and XP sync for ALL accounts
+  run-all                   Execute daily bonus, spin, calendar, and XP sync for ALL accounts
   run <accountId>           Execute daily tasks for a specific account
   spin [accountId]          Trigger daily wheel spin (all or specific account)
   bonus [accountId]         Claim daily streak bonus (all or specific account)
+  week-bonus [account] [day] Claim weekly calendar bonus (1-7)
+  recover-cards [accountId] Check and redeem any unfulfilled gift cards won from packs
   sync [accountId] [xp]     Sync XP amount (default: 15 XP)
   open-pack [accountId] [tier] Attempt opening a pack ('standard', 'rare', 'elite')
   help                      Display this help manual
