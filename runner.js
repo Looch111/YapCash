@@ -255,16 +255,22 @@ async function runAllAccounts(accounts) {
         };
       });
 
+      const bonusAwarded = summary.dailyBonus?.awarded || 0;
+      const spinAwarded = summary.dailySpin?.awarded || 0;
+      const weekBonusAwarded = summary.weekBonus?.xpAwarded || 0;
+      const totalNetGain = Math.max(0, endXp - startXp);
+      const xpGained = summary.xpSync?.totalAwarded ?? Math.max(0, totalNetGain - bonusAwarded - spinAwarded - weekBonusAwarded);
+
       const accEntry = {
         accountId: acc.accountId,
         email,
         startXp,
         endXp,
-        xpGained: Math.max(0, endXp - startXp),
+        xpGained,
         streak: finalState?.current_streak ?? initialState?.current_streak ?? "N/A",
-        bonusAwarded: summary.dailyBonus?.awarded || 0,
-        spinAwarded: summary.dailySpin?.awarded || 0,
-        weekBonusAwarded: summary.weekBonus?.xpAwarded || 0,
+        bonusAwarded,
+        spinAwarded,
+        weekBonusAwarded,
         packOpens: packResults,
       };
 
