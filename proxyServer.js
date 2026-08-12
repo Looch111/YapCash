@@ -35,36 +35,51 @@ function getFlagEmoji(countryCode) {
   return String.fromCodePoint(...codePoints);
 }
 
-// Fetch public IP and country geolocation info on startup
-async function detectGeoLocation() {
-  try {
-    const { fetchWithRetry } = require("./lib/http");
-    const res = await fetchWithRetry("http://ip-api.com/json/?fields=status,message,country,countryCode,city,org,query", {}, 2, 1000);
-    if (res && res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.status === "success" || data.query) {
-        proxyStats.publicIp = data.query || proxyStats.publicIp;
-        proxyStats.country = data.country || "Unknown";
-        proxyStats.countryCode = data.countryCode || "";
-        proxyStats.flag = getFlagEmoji(data.countryCode);
-        proxyStats.city = data.city || "Unknown";
-        proxyStats.org = data.org || "Unknown";
-        return;
-      }
-    }
-  } catch (_) {}
+// Fast multi-provider public IP and geolocation lookup
+async function detectGeoLocation(force = false) {
+  if (!force && proxyStats.publicIp !== "Detecting..." && proxyStats.publicIp !== "Unknown") {
+    return proxyStats;
+  }
 
-  // Fallback IP detection
-  try {
-    const { fetchWithRetry } = require("./lib/http");
-    const res = await fetchWithRetry("https://api.ipify.org?format=json", {}, 2, 1000);
-    if (res && res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.ip) {
-        proxyStats.publicIp = data.ip;
+  const providers = [
+    {
+      url: "http://ip-api.com/json/?fields=status,country,countryCode,city,org,query",
+      parse: (d) => ({ ip: d.query, country: d.country, code: d.countryCode, city: d.city, org: d.org }),
+    },
+    {
+      url: "https://ipapi.co/json/",
+      parse: (d) => ({ ip: d.ip, country: d.country_name, code: d.country_code, city: d.city, org: d.org || d.asn }),
+    },
+    {
+      url: "https://api.ipify.org?format=json",
+      parse: (d) => ({ ip: d.ip, country: "Cloud Region", code: "", city: "Datacenter", org: "Hosting Provider" }),
+    },
+  ];
+
+  for (const provider of providers) {
+    try {
+      const fetchOpts = { method: "GET" };
+      if (typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+        fetchOpts.signal = AbortSignal.timeout(3000);
       }
-    }
-  } catch (_) {}
+      const res = await fetch(provider.url, fetchOpts).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const parsed = provider.parse(data);
+        if (parsed && parsed.ip) {
+          proxyStats.publicIp = parsed.ip;
+          proxyStats.country = parsed.country || "Cloud Region";
+          proxyStats.countryCode = parsed.code || "";
+          proxyStats.flag = getFlagEmoji(parsed.code);
+          proxyStats.city = parsed.city || "Datacenter";
+          proxyStats.org = parsed.org || "Hosting Provider";
+          return proxyStats;
+        }
+      }
+    } catch (_) {}
+  }
+
+  return proxyStats;
 }
 
 function parseArgs() {
@@ -223,7 +238,7 @@ function getProxyInfo() {
   const uptimeMs = startTime ? Date.now() - startTime : 0;
   const authPart = proxyStats.user ? `${proxyStats.user}:${proxyStats.pass}@` : "";
   const ip = proxyStats.publicIp !== "Detecting..." ? proxyStats.publicIp : "127.0.0.1";
-  
+
   return {
     ...proxyStats,
     uptime: formatDuration(uptimeMs),
@@ -233,7 +248,6 @@ function getProxyInfo() {
   };
 }
 
-// Support CLI execution directly
 if (require.main === module) {
   startProxyServer();
 }
@@ -241,4 +255,5 @@ if (require.main === module) {
 module.exports = {
   startProxyServer,
   getProxyInfo,
+  detectGeoLocation,
 };
