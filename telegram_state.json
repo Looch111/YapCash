@@ -1,9 +1,5 @@
 {
-  "routineMessageIds": [
-    428,
-    430,
-    432
-  ],
+  "routineMessageIds": [],
   "giftCardMessages": {
     "404": {
       "accountId": "unknown",

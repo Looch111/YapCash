@@ -4,8 +4,7 @@
   "description": "Smart All-in-One Multi-Account Automation for YapCash",
   "main": "runner.js",
   "scripts": {
-    "start": "node runner.js",
-    "proxy": "node proxyServer.js"
+    "start": "node runner.js"
   },
   "keywords": [],
   "author": "",

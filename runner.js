@@ -4,12 +4,8 @@ const { loadAccounts, updateAccountTokens } = require("./lib/accountManager");
 const SupabaseClient = require("./lib/supabaseClient");
 const { runFullDailyRoutine, claimDailyBonus, claimDailySpin, claimWeekBonusCalendar, recoverUnclaimedGiftCards, syncXp, openRewardPack } = require("./lib/apiTasks");
 const { sendDailyReport, sendAccountReport, cleanupPreviousRoutineMessages, startTelegramPollingListener } = require("./lib/telegram");
-const { startProxyServer } = require("./proxyServer");
 
 async function main() {
-  // Automatically start built-in 2-in-1 Proxy Server
-  startProxyServer();
-
   const args = process.argv.slice(2);
   const command = args[0] || "daemon";
 
