@@ -223,37 +223,21 @@ async function runAllAccounts(accounts) {
 
       const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
 
-      if (summary.streakHeal?.currentStreak != null) {
-        console.log(`  └─ Streak: Reconciled (${summary.streakHeal.currentStreak} days)`);
-      }
-      console.log(`  └─ Bonus:  ${summary.dailyBonus.message}`);
-      console.log(`  └─ Spin:   ${summary.dailySpin.message}`);
-      if (summary.weekBonus) {
-        console.log(`  └─ Calendar: ${summary.weekBonus.message}`);
-      }
-      if (summary.recoveredCards && summary.recoveredCards.recoveredCount > 0) {
-        console.log(`  └─ Recovered: ${summary.recoveredCards.message}`);
-      }
-      if (summary.xpSync) {
-        console.log(`  └─ Sync:   ${summary.xpSync.message}`);
-      }
-      if (summary.packOpens && summary.packOpens.length > 0) {
-        summary.packOpens.forEach(p => console.log(`  └─ Pack:   ${p.message}`));
-      }
+
 
       // Record final user state after farming
       const finalState = await client.getUserState().catch(() => null);
       const endXp = finalState?.total_xp ?? (startXp + (summary.xpSync?.totalAwarded || 0));
 
-      const packResults = (summary.packOpens || []).map(p => {
-        const isWin = p.message && p.message.includes("GIFT CARD WON");
-        return {
-          packId: p.message?.match(/\(([^)]+)\)/)?.[1] || "standard",
-          ok: p.ok,
-          isWin,
-          status: p.message,
-        };
-      });
+      const packResults = [];
+      if (summary.smartPackOpen && summary.smartPackOpen.opened) {
+        packResults.push({
+          packId: summary.smartPackOpen.targetTier || "standard",
+          ok: summary.smartPackOpen.ok,
+          isWin: summary.smartPackOpen.isWin || false,
+          status: summary.smartPackOpen.message,
+        });
+      }
 
       const bonusAwarded = summary.dailyBonus?.awarded || 0;
       const spinAwarded = summary.dailySpin?.awarded || 0;
@@ -283,6 +267,11 @@ async function runAllAccounts(accounts) {
       } else {
         console.warn(`  ⚠️ Telegram notification failed for ${acc.accountId}: ${tgRes.error || tgRes.reason || "Unknown"}`);
       }
+
+      // Add randomized jitter delay (5 to 15 seconds) between accounts to avoid burst rate limits
+      const jitterMs = Math.floor(Math.random() * 10000) + 5000;
+      console.log(`  ⏳ Jitter pause (${(jitterMs / 1000).toFixed(1)}s) before next account...`);
+      await new Promise((r) => setTimeout(r, jitterMs));
 
     } catch (err) {
       console.error(`  ❌ Failed: ${err.message}`);
@@ -321,23 +310,7 @@ async function runSingleAccount(accounts, targetId) {
 
     const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
 
-    if (summary.streakHeal?.currentStreak != null) {
-      console.log(`  └─ Streak: Reconciled (${summary.streakHeal.currentStreak} days)`);
-    }
-    console.log(`  └─ Bonus:  ${summary.dailyBonus.message}`);
-    console.log(`  └─ Spin:   ${summary.dailySpin.message}`);
-    if (summary.weekBonus) {
-      console.log(`  └─ Calendar: ${summary.weekBonus.message}`);
-    }
-    if (summary.recoveredCards && summary.recoveredCards.recoveredCount > 0) {
-      console.log(`  └─ Recovered: ${summary.recoveredCards.message}`);
-    }
-    if (summary.xpSync) {
-      console.log(`  └─ Sync:   ${summary.xpSync.message}`);
-    }
-    if (summary.packOpens && summary.packOpens.length > 0) {
-      summary.packOpens.forEach(p => console.log(`  └─ Pack:   ${p.message}`));
-    }
+
   } catch (err) {
     console.error(`  ❌ Failed: ${err.message}`);
   }
