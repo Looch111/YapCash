@@ -1,5 +1,7 @@
 # YapCash Proxy Pool File
-# Paste your Webshare / Proxy strings below (one per line).
-# Format: http://username:password@ip:port
+# Formats supported: http://user:pass@ip:port OR ip:port:user:pass
 
-http://bmrtynfq:cd2hv07lt0yr@31.56.127.193:7684
+31.56.127.193:7684:bmrtynfq:cd2hv07lt0yr
+198.23.243.226:6361:bmrtynfq:cd2hv07lt0yr
+38.154.185.97:6370:bmrtynfq:cd2hv07lt0yr
+191.96.254.138:6185:bmrtynfq:cd2hv07lt0yr
