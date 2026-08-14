@@ -70,6 +70,15 @@ async function main() {
       await runTaskForAccounts(accounts, args[1], (client) => drainAccountPacks(client, 10), "Smart Waterfall Auto-Drain");
       break;
 
+    case "create-account":
+      const { createAccountHelper } = require("./scripts/createAccountHelper");
+      await createAccountHelper({
+        accountId: args[1],
+        proxy: args[2],
+        refCode: args[3],
+      });
+      break;
+
     case "help":
     default:
       printHelp();
@@ -361,6 +370,8 @@ Commands:
   recover-cards [accountId] Check and redeem any unfulfilled gift cards won from packs
   sync [accountId] [xp]     Sync XP amount (default: 15 XP)
   open-pack [accountId] [tier] Attempt opening a pack ('standard', 'rare', 'elite')
+  smart-drain [accountId]  Run Master Smart Waterfall Pack Auto-Drain
+  create-account [id] [proxy] [ref] Automated Google OAuth sign-up & refresh token extractor
   help                      Display this help manual
 `);
 }
