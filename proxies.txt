@@ -1,0 +1,5 @@
+# YapCash Proxy Pool File
+# Paste your Webshare / Proxy strings below (one per line).
+# Format: http://username:password@ip:port
+
+http://bmrtynfq:cd2hv07lt0yr@31.56.127.193:7684

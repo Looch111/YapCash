@@ -70,13 +70,25 @@ async function main() {
       await runTaskForAccounts(accounts, args[1], (client) => drainAccountPacks(client, 10), "Smart Waterfall Auto-Drain");
       break;
 
-    case "create-account":
-      const { createAccountHelper } = require("./scripts/createAccountHelper");
-      await createAccountHelper({
-        accountId: args[1],
-        proxy: args[2],
-        refCode: args[3],
-      });
+    case "test-proxies":
+      console.log("🌐 Testing all proxies in proxies.txt pool...");
+      const { testAllProxiesInPool } = require("./lib/accountManager");
+      const audit = await testAllProxiesInPool();
+      if (!audit.ok) {
+        console.error(`❌ ${audit.message}`);
+      } else {
+        console.log(`\n📊 Proxy Pool Audit Summary: ${audit.workingCount}/${audit.totalInPool} Working`);
+        console.log("──────────────────────────────────────────────────");
+        audit.results.forEach((r, idx) => {
+          if (r.ok) {
+            const loc = r.city ? `${r.country} - ${r.city}` : r.country;
+            console.log(`  [${idx + 1}] 🟢 ${r.ip} (${loc}) | Latency: ${r.latencyMs}ms`);
+          } else {
+            console.log(`  [${idx + 1}] 🔴 Failed: ${r.error} (${r.latencyMs}ms)`);
+          }
+        });
+        console.log("──────────────────────────────────────────────────\n");
+      }
       break;
 
     case "help":
@@ -370,8 +382,8 @@ Commands:
   recover-cards [accountId] Check and redeem any unfulfilled gift cards won from packs
   sync [accountId] [xp]     Sync XP amount (default: 15 XP)
   open-pack [accountId] [tier] Attempt opening a pack ('standard', 'rare', 'elite')
-  smart-drain [accountId]  Run Master Smart Waterfall Pack Auto-Drain
-  create-account [id] [proxy] [ref] Automated Google OAuth sign-up & refresh token extractor
+  smart-drain [accountId]   Run Master Waterfall Engine to drain packs top-down
+  test-proxies              Audit latency, exit IP, and country for all proxies in proxies.txt
   help                      Display this help manual
 `);
 }
