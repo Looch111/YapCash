@@ -253,6 +253,7 @@ async function runAllAccounts(accounts) {
       const accEntry = {
         accountId: acc.accountId,
         email,
+        rewardCountry: finalState?.reward_country || initialState?.reward_country || "US",
         startXp,
         endXp,
         xpGained,
