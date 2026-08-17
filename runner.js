@@ -153,48 +153,48 @@ async function runDaemonMode(initialAccounts) {
 
 async function showStatus(accounts) {
   console.log("\n=======================================================");
-  console.log(" 📊 YapCash Multi-Account Status Overview");
+  console.log(` 📊 YapCash Multi-Account Status Overview (${accounts.length} Accounts)`);
   console.log("=======================================================\n");
 
-  const results = [];
+  const results = await Promise.all(
+    accounts.map(async (acc) => {
+      const client = new SupabaseClient(acc);
+      try {
+        const session = await client.ensureAuthenticated();
+        updateAccountTokens(acc.accountId, session);
 
-  for (const acc of accounts) {
-    const client = new SupabaseClient(acc);
-    try {
-      const session = await client.ensureAuthenticated();
-      updateAccountTokens(acc.accountId, session);
+        let email = session.user?.email || acc.email;
+        let userObj = session.user;
+        if (session.accessToken) {
+          try {
+            const payloadBase64 = session.accessToken.split(".")[1];
+            const decoded = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
+            if (!email) email = decoded.email || decoded.user_metadata?.email || "N/A";
+            if (!userObj && decoded.sub) userObj = { id: decoded.sub };
+          } catch (_) {}
+        }
 
-      let email = session.user?.email;
-      let userObj = session.user;
-      if (session.accessToken) {
-        try {
-          const payloadBase64 = session.accessToken.split(".")[1];
-          const decoded = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
-          if (!email) email = decoded.email || decoded.user_metadata?.email || "N/A";
-          if (!userObj && decoded.sub) userObj = { id: decoded.sub };
-        } catch (_) {}
+        const userState = await client.getUserState(userObj);
+        return {
+          Account: acc.accountId,
+          Email: email || "N/A",
+          "Total XP": userState?.total_xp ?? "N/A",
+          Streak: userState?.current_streak ?? "N/A",
+          "Last Active": userState?.last_activity_date || "N/A",
+          Status: "✅ Connected",
+        };
+      } catch (err) {
+        return {
+          Account: acc.accountId,
+          Email: acc.email || "N/A",
+          "Total XP": "N/A",
+          Streak: "N/A",
+          "Last Active": "N/A",
+          Status: `❌ Error (${err.message.slice(0, 30)}...)`,
+        };
       }
-
-      const userState = await client.getUserState(userObj);
-      results.push({
-        Account: acc.accountId,
-        Email: email || "N/A",
-        "Total XP": userState?.total_xp ?? "N/A",
-        Streak: userState?.current_streak ?? "N/A",
-        "Last Active": userState?.last_activity_date || "N/A",
-        Status: "✅ Connected",
-      });
-    } catch (err) {
-      results.push({
-        Account: acc.accountId,
-        Email: "N/A",
-        "Total XP": "N/A",
-        Streak: "N/A",
-        "Last Active": "N/A",
-        Status: `❌ Error (${err.message.slice(0, 30)}...)`,
-      });
-    }
-  }
+    })
+  );
 
   console.table(results);
 }
