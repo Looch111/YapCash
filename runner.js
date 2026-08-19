@@ -65,6 +65,7 @@ async function main() {
       await runTaskForAccounts(accounts, args[1], (client) => openRewardPack(client, packId), `Open Pack (${packId})`);
       break;
 
+    case "drain":
     case "smart-drain":
       const { drainAccountPacks } = require("./lib/apiTasks");
       await runTaskForAccounts(accounts, args[1], (client) => drainAccountPacks(client, 10), "Smart Waterfall Auto-Drain");
