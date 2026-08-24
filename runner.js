@@ -301,10 +301,7 @@ async function runDaemonMode(initialAccounts) {
           packOpens: packResults,
         };
 
-        const tgRes = await sendAccountReport(accEntry).catch((err) => ({ ok: false, error: err.message }));
-        if (tgRes.ok) {
-          console.log(`  📱 Telegram notification sent for ${acc.accountId}`);
-        }
+        console.log(`  ✅ Routine completed for ${acc.accountId} (XP: ${startXp} ➔ ${endXp}, Streak: ${accEntry.streak})`);
       } catch (err) {
         console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
       }
