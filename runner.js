@@ -102,7 +102,8 @@ function formatDuration(ms) {
 }
 
 /**
- * Continuous daemon scheduler loop.
+ * Continuous 24-hour randomized staggered daemon scheduler loop.
+ * Instead of running all accounts in a single burst, accounts are randomly distributed across 24 hours.
  */
 async function runDaemonMode(initialAccounts) {
   // Start HTTP health check server for cloud deployment platforms (Koyeb/Render)
@@ -111,17 +112,17 @@ async function runDaemonMode(initialAccounts) {
     const PORT = process.env.PORT || 8000;
     http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "online", daemon: "active", timestamp: new Date().toISOString() }));
+      res.end(JSON.stringify({ status: "online", daemon: "active", scheduler: "24h_staggered", timestamp: new Date().toISOString() }));
     }).listen(PORT, () => {
       console.log(`🌐 Health check HTTP server active on port ${PORT}`);
     });
   } catch (_) {}
 
   console.log("\n=======================================================");
-  console.log(" 🤖 YapCash Smart Daemon Mode Started");
+  console.log(" 🤖 YapCash 24-Hour Randomized Staggered Daemon");
   console.log("=======================================================");
-  console.log("The script will run daily tasks now and automatically");
-  console.log("schedule execution at 00:05 UTC after every reset.");
+  console.log("Accounts are randomly spaced across 24 hours to mimic");
+  console.log("100% natural human usage patterns and prevent detection.");
   console.log("Press Ctrl+C to stop daemon.");
   console.log("=======================================================\n");
 
@@ -131,23 +132,97 @@ async function runDaemonMode(initialAccounts) {
   let cycleCount = 1;
 
   while (true) {
-    console.log(`\n⏰ [Cycle #${cycleCount}] Starting execution at ${new Date().toISOString()}`);
-
     const accounts = loadAccounts(); // reload fresh accounts list
-    await runAllAccounts(accounts);
+    console.log(`\n⏰ [Cycle #${cycleCount}] Distributing ${accounts.length} accounts across 24 hours...`);
 
-    const msUntilReset = getMsUntilNextUtcReset();
-    const formattedDelay = formatDuration(msUntilReset);
-    const nextExecutionDate = new Date(Date.now() + msUntilReset).toISOString();
+    // Shuffle accounts order randomly each cycle so execution order changes daily
+    const shuffledAccounts = [...accounts].sort(() => Math.random() - 0.5);
 
-    console.log("\n-------------------------------------------------------");
-    console.log(`😴 [Cycle #${cycleCount} Complete] Sleeping until next UTC reset.`);
-    console.log(`⏳ Next cycle in: ${formattedDelay}`);
-    console.log(`📅 Next execution scheduled at: ${nextExecutionDate} (UTC)`);
-    console.log("-------------------------------------------------------\n");
+    // Calculate base interval slot per account (24 hours divided by total accounts)
+    // For 14 accounts: 24h / 14 = ~102 minutes per slot
+    const totalDayMs = 24 * 60 * 60 * 1000;
+    const baseSlotMs = Math.floor(totalDayMs / shuffledAccounts.length);
 
+    for (let i = 0; i < shuffledAccounts.length; i++) {
+      const acc = shuffledAccounts[i];
+      console.log(`\n-------------------------------------------------------`);
+      console.log(`▶ [Slot ${i + 1}/${shuffledAccounts.length}] Account: ${acc.accountId} at ${new Date().toISOString()}`);
+      console.log(`-------------------------------------------------------`);
+
+      const client = new SupabaseClient(acc);
+      try {
+        const session = await client.ensureAuthenticated();
+        updateAccountTokens(acc.accountId, session);
+
+        const initialState = await client.getUserState().catch(() => null);
+        const startXp = initialState?.total_xp ?? 0;
+        const email = session.user?.email || initialState?.email || "N/A";
+
+        const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
+
+        const finalState = await client.getUserState().catch(() => null);
+        const endXp = finalState?.total_xp ?? (startXp + (summary.xpSync?.totalAwarded || 0));
+
+        const packResults = [];
+        if (summary.smartPackOpen && summary.smartPackOpen.opened) {
+          packResults.push({
+            packId: summary.smartPackOpen.targetTier || "standard",
+            ok: summary.smartPackOpen.ok,
+            isWin: summary.smartPackOpen.isWin || false,
+            status: summary.smartPackOpen.message,
+          });
+        }
+
+        const bonusAwarded = summary.dailyBonus?.awarded || 0;
+        const spinAwarded = summary.dailySpin?.awarded || 0;
+        const weekBonusAwarded = summary.weekBonus?.xpAwarded || 0;
+        const totalNetGain = Math.max(0, endXp - startXp);
+        const xpGained = summary.xpSync?.totalAwarded ?? Math.max(0, totalNetGain - bonusAwarded - spinAwarded - weekBonusAwarded);
+
+        const accEntry = {
+          accountId: acc.accountId,
+          email,
+          rewardCountry: finalState?.reward_country || initialState?.reward_country || "US",
+          startXp,
+          endXp,
+          xpGained,
+          streak: finalState?.current_streak ?? initialState?.current_streak ?? "N/A",
+          bonusAwarded,
+          spinAwarded,
+          weekBonusAwarded,
+          packOpens: packResults,
+        };
+
+        const tgRes = await sendAccountReport(accEntry).catch((err) => ({ ok: false, error: err.message }));
+        if (tgRes.ok) {
+          console.log(`  📱 Telegram notification sent for ${acc.accountId}`);
+        }
+      } catch (err) {
+        console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
+      }
+
+      // If not the last account in cycle, calculate randomized sleep time until next account slot
+      if (i < shuffledAccounts.length - 1) {
+        // Add random jitter offset between -20 minutes and +20 minutes
+        const jitterMinutes = (Math.random() * 40) - 20;
+        const jitterMs = Math.floor(jitterMinutes * 60 * 1000);
+
+        // Ensure target delay stays bounded between 30 minutes and 150 minutes
+        const targetSleepMs = Math.max(30 * 60 * 1000, Math.min(150 * 60 * 1000, baseSlotMs + jitterMs));
+        const formattedDelay = formatDuration(targetSleepMs);
+        const nextAccountTime = new Date(Date.now() + targetSleepMs).toISOString();
+
+        console.log(`\n🎲 Next account (${shuffledAccounts[i + 1].accountId}) scheduled in: ${formattedDelay}`);
+        console.log(`📅 Target execution time: ${nextAccountTime} (UTC)`);
+        console.log(`-------------------------------------------------------\n`);
+
+        await new Promise((resolve) => setTimeout(resolve, targetSleepMs));
+      }
+    }
+
+    console.log(`\n✨ [Cycle #${cycleCount} Complete] All 14 accounts processed across 24 hours.`);
+    console.log(`🔄 Restarting next 24-hour cycle with new randomized order...\n`);
     cycleCount++;
-    await new Promise((resolve) => setTimeout(resolve, msUntilReset));
   }
 }
 
