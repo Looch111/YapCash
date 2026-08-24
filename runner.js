@@ -185,9 +185,6 @@ async function runDaemonMode(initialAccounts) {
               streak: userState?.current_streak ?? "N/A",
             };
 
-            const { sendTokenUpdateNotification } = require("./lib/telegram");
-            await sendTokenUpdateNotification(accEntry).catch(() => {});
-
             console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email})`);
 
             res.writeHead(200, { "Content-Type": "application/json" });
@@ -233,6 +230,12 @@ async function runDaemonMode(initialAccounts) {
 
   // Start background Telegram listener for 24/7 interactive pack commands & button polling
   startTelegramPollingListener();
+
+  // Send automatic Server Boot Notification to Telegram on startup
+  const { sendServerBootNotification } = require("./lib/telegram");
+  await sendServerBootNotification().catch((err) => {
+    console.warn("⚠️ Could not send server boot Telegram notification:", err.message);
+  });
 
   let cycleCount = 1;
 
