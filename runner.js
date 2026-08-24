@@ -106,17 +106,122 @@ function formatDuration(ms) {
  * Instead of running all accounts in a single burst, accounts are randomly distributed across 24 hours.
  */
 async function runDaemonMode(initialAccounts) {
-  // Start HTTP health check server for cloud deployment platforms (Koyeb/Render)
+  // Start HTTP API server for Koyeb cloud platform & remote passive token sync
   try {
     const http = require("http");
     const PORT = process.env.PORT || 8000;
-    http.createServer((req, res) => {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "online", daemon: "active", scheduler: "24h_staggered", timestamp: new Date().toISOString() }));
+    const SYNC_SECRET = process.env.SYNC_SECRET || "yapcash_secret_2026";
+
+    http.createServer(async (req, res) => {
+      // Set CORS headers so Chrome browser on PC can send token POST requests smoothly
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-sync-key");
+
+      if (req.method === "OPTIONS") {
+        res.writeHead(204);
+        return res.end();
+      }
+
+      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+      // 1. Health check GET endpoint
+      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ status: "online", daemon: "active", scheduler: "24h_staggered", timestamp: new Date().toISOString() }));
+      }
+
+      // 2. Passive Token Sync POST endpoint
+      if (req.method === "POST" && url.pathname === "/api/sync-token") {
+        let body = "";
+        req.on("data", chunk => { body += chunk; });
+        req.on("end", async () => {
+          try {
+            const data = JSON.parse(body || "{}");
+            const keyProvided = req.headers["x-sync-key"] || data.secretKey || data.key;
+
+            if (keyProvided !== SYNC_SECRET) {
+              res.writeHead(401, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: "Unauthorized: Invalid secret key" }));
+            }
+
+            const refreshToken = data.refreshToken || data.refresh_token;
+            if (!refreshToken) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: "Missing refreshToken parameter" }));
+            }
+
+            // Authenticate token against Supabase
+            const tempAcc = { accountId: "temp_sync", refreshToken, proxy: null };
+            const client = new SupabaseClient(tempAcc);
+            const session = await client.ensureAuthenticated(true).catch(err => ({ error: err.message }));
+
+            if (!session || !session.accessToken) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: `Invalid refresh token: ${session?.error || "Auth failed"}` }));
+            }
+
+            const userState = await client.getUserState().catch(() => null);
+            const email = session.user?.email || userState?.email;
+            const accounts = loadAccounts();
+
+            // Match account by email or targetAccountId
+            let targetAcc = data.accountId ? accounts.find(a => a.accountId === data.accountId) : null;
+            if (!targetAcc && email) {
+              targetAcc = accounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+            }
+            if (!targetAcc) {
+              targetAcc = accounts[0]; // fallback
+            }
+
+            const targetId = targetAcc ? targetAcc.accountId : "account_1";
+            updateAccountTokens(targetId, session);
+
+            const accEntry = {
+              accountId: targetId,
+              email: email || targetAcc?.email || "N/A",
+              rewardCountry: userState?.reward_country || "US",
+              totalXp: userState?.total_xp ?? 0,
+              streak: userState?.current_streak ?? "N/A",
+            };
+
+            const { sendTokenUpdateNotification } = require("./lib/telegram");
+            await sendTokenUpdateNotification(accEntry).catch(() => {});
+
+            console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email})`);
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({
+              ok: true,
+              accountId: targetId,
+              email: email || "N/A",
+              message: `Token updated live on Koyeb for ${targetId}!`,
+            }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      // 3. Server Process Reboot POST endpoint
+      if (req.method === "POST" && url.pathname === "/api/restart") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, message: "Koyeb server process rebooting..." }));
+        console.log("🔄 HTTP /api/restart endpoint called. Rebooting container in 1s...");
+        setTimeout(() => process.exit(0), 1000);
+        return;
+      }
+
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Endpoint not found" }));
     }).listen(PORT, () => {
-      console.log(`🌐 Health check HTTP server active on port ${PORT}`);
+      console.log(`🌐 Health check & Passive Token Sync API server active on port ${PORT}`);
     });
-  } catch (_) {}
+  } catch (err) {
+    console.warn("⚠️ Could not start HTTP server:", err.message);
+  }
 
   console.log("\n=======================================================");
   console.log(" 🤖 YapCash 24-Hour Randomized Staggered Daemon");
