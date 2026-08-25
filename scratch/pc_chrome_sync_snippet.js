@@ -21,7 +21,9 @@
 
       chrome.storage.local.get(null, async (data) => {
         let refreshToken = null;
-        if (data.session && data.session.refresh_token) {
+        if (data.refreshToken) {
+          refreshToken = data.refreshToken;
+        } else if (data.session && data.session.refresh_token) {
           refreshToken = data.session.refresh_token;
         } else if (data["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
           try {
@@ -67,7 +69,7 @@
   // Listen for live storage updates when switching accounts in YapCash extension
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes) => {
-      if (changes.session || changes["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
+      if (changes.refreshToken || changes.session || changes["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
         console.log("🔄 Detected YapCash account switch! Auto-syncing to Koyeb...");
         syncActiveToken();
       }

@@ -163,29 +163,17 @@ async function runDaemonMode(initialAccounts) {
 
             const userState = await client.getUserState().catch(() => null);
             const email = session.user?.email || userState?.email;
-            const accounts = loadAccounts();
+            const userId = session.user?.id || session.user?.sub;
 
-            // Match account by email or targetAccountId
-            let targetAcc = data.accountId ? accounts.find(a => a.accountId === data.accountId) : null;
-            if (!targetAcc && email) {
-              targetAcc = accounts.find(a => a.email && a.email.toLowerCase() === email.toLowerCase());
-            }
-            if (!targetAcc) {
-              targetAcc = accounts[0]; // fallback
-            }
+            const targetId = updateAccountTokens({
+              accountId: data.accountId,
+              email,
+              userId,
+              refreshToken,
+              accessToken: session.accessToken,
+            });
 
-            const targetId = targetAcc ? targetAcc.accountId : "account_1";
-            updateAccountTokens(targetId, session);
-
-            const accEntry = {
-              accountId: targetId,
-              email: email || targetAcc?.email || "N/A",
-              rewardCountry: userState?.reward_country || "US",
-              totalXp: userState?.total_xp ?? 0,
-              streak: userState?.current_streak ?? "N/A",
-            };
-
-            console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email})`);
+            console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
 
             res.writeHead(200, { "Content-Type": "application/json" });
             return res.end(JSON.stringify({
@@ -252,7 +240,11 @@ async function runDaemonMode(initialAccounts) {
     const baseSlotMs = Math.floor(totalDayMs / shuffledAccounts.length);
 
     for (let i = 0; i < shuffledAccounts.length; i++) {
-      const acc = shuffledAccounts[i];
+      const baseAcc = shuffledAccounts[i];
+      // Re-read latest account data to ensure live updated tokens are used immediately
+      const freshAccounts = loadAccounts();
+      const acc = freshAccounts.find(a => a.accountId === baseAcc.accountId) || baseAcc;
+
       console.log(`\n-------------------------------------------------------`);
       console.log(`▶ [Slot ${i + 1}/${shuffledAccounts.length}] Account: ${acc.accountId} at ${new Date().toISOString()}`);
       console.log(`-------------------------------------------------------`);
