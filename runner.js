@@ -175,6 +175,20 @@ async function runDaemonMode(initialAccounts) {
 
             console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
 
+            const accEntry = {
+              accountId: targetId,
+              email: email || "N/A",
+              rewardCountry: userState?.reward_country || "US",
+              totalXp: userState?.total_xp ?? "N/A",
+              streak: userState?.current_streak ?? "N/A",
+            };
+
+            // Dispatch Telegram notification card for live token sync
+            const { sendTokenUpdateNotification } = require("./lib/telegram");
+            await sendTokenUpdateNotification(accEntry).catch((err) => {
+              console.warn("⚠️ Could not send token sync Telegram notification:", err.message);
+            });
+
             res.writeHead(200, { "Content-Type": "application/json" });
             return res.end(JSON.stringify({
               ok: true,
