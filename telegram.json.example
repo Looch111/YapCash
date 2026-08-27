@@ -1,5 +1,0 @@
-{
-  "botToken": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
-  "chatId": "YOUR_TELEGRAM_CHAT_ID_HERE",
-  "enabled": true
-}
