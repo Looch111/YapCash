@@ -349,12 +349,11 @@ async function runDaemonMode(initialAccounts) {
 
       // If not the last account in cycle, calculate randomized sleep time until next account slot
       if (i < shuffledAccounts.length - 1) {
-        // Add random jitter offset between -20 minutes and +20 minutes
-        const jitterMinutes = (Math.random() * 40) - 20;
-        const jitterMs = Math.floor(jitterMinutes * 60 * 1000);
+        // Dynamically split 24 hours evenly among total active accounts with ±20% organic human jitter
+        const minSleepMs = Math.max(3 * 60 * 1000, Math.floor(baseSlotMs * 0.8));
+        const maxSleepMs = Math.floor(baseSlotMs * 1.2);
+        const targetSleepMs = Math.floor(Math.random() * (maxSleepMs - minSleepMs + 1)) + minSleepMs;
 
-        // Ensure target delay stays bounded between 30 minutes and 150 minutes
-        const targetSleepMs = Math.max(30 * 60 * 1000, Math.min(150 * 60 * 1000, baseSlotMs + jitterMs));
         const formattedDelay = formatDuration(targetSleepMs);
         const nextAccountTime = new Date(Date.now() + targetSleepMs).toISOString();
 
