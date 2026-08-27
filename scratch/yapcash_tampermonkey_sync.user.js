@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         YapCash Extension Token Auto-Sync to Firebase
+// @name         YapCash Live Token Auto-Sync to Firebase
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  Automatically sync active YapCash session tokens to Koyeb & Firebase Firestore 24/7 hands-free!
 // @author       YapCash AutoFarm
-// @match        *://*/*
-// @include      chrome-extension://mcfanhenfbmjakpnokkkhoidceeobigf/*
+// @match        http://*/*
+// @match        https://*/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==UserScript==
