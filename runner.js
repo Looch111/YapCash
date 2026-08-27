@@ -149,32 +149,50 @@ async function runDaemonMode(initialAccounts) {
               return res.end(JSON.stringify({ ok: false, error: "Unauthorized: Invalid secret key" }));
             }
 
-            const refreshToken = data.refreshToken || data.refresh_token;
-            if (!refreshToken) {
+            let refreshToken = data.refreshToken || data.refresh_token;
+            let accessToken = data.accessToken || data.access_token || null;
+            let email = data.email || null;
+            let userId = data.userId || data.user_id || data.sub || null;
+
+            if (!refreshToken && !accessToken) {
               res.writeHead(400, { "Content-Type": "application/json" });
               return res.end(JSON.stringify({ ok: false, error: "Missing refreshToken parameter" }));
             }
 
-            // Authenticate token against Supabase
-            const tempAcc = { accountId: "temp_sync", refreshToken, proxy: null };
-            const client = new SupabaseClient(tempAcc);
-            const session = await client.ensureAuthenticated(true).catch(err => ({ error: err.message }));
-
-            if (!session || !session.accessToken) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: `Invalid refresh token: ${session?.error || "Auth failed"}` }));
+            // Instantly decode JWT access token if available
+            if (accessToken) {
+              try {
+                const payloadBase64 = accessToken.split(".")[1];
+                const decoded = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
+                if (!email) email = decoded.email || decoded.user_metadata?.email || null;
+                if (!userId) userId = decoded.sub || null;
+              } catch (_) {}
             }
 
-            const userState = await client.getUserState().catch(() => null);
-            const email = session.user?.email || userState?.email;
-            const userId = session.user?.id || session.user?.sub;
+            // If email or accessToken missing, verify/refresh via Supabase
+            if (!accessToken || !email) {
+              const tempAcc = { accountId: "temp_sync", refreshToken, accessToken, proxy: null };
+              const client = new SupabaseClient(tempAcc);
+              const session = await client.ensureAuthenticated().catch(err => ({ error: err.message }));
+
+              if (session && session.accessToken) {
+                accessToken = session.accessToken;
+                if (!email) email = session.user?.email;
+                if (!userId) userId = session.user?.id;
+              }
+            }
+
+            if (!refreshToken && !accessToken) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: "Authentication failed for token" }));
+            }
 
             const targetId = updateAccountTokens({
               accountId: data.accountId,
-              email,
-              userId,
-              refreshToken,
-              accessToken: session.accessToken,
+              email: email || "N/A",
+              userId: userId || "",
+              refreshToken: refreshToken || "",
+              accessToken: accessToken || "",
             });
 
             console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
