@@ -180,6 +180,7 @@ async function runDaemonMode(initialAccounts) {
               userId,
               refreshToken,
               accessToken: session.accessToken,
+              rewardCountry: userState?.reward_country || "US",
             });
 
             console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
