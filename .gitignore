@@ -2,4 +2,6 @@ node_modules/
 *.tmp
 .DS_Store
 accounts.json
+account_balances.json
+
 
