@@ -13,8 +13,10 @@ const { fetchWithRetry } = require("../lib/http");
   let auditPassed = true;
 
   // 1. Audit Accounts Database
-  console.log("🔍 [1/6] Auditing Accounts Database (accounts.json)...");
-  const accounts = loadAccounts();
+  console.log("🔍 [1/6] Auditing Accounts Database (Firebase Cloud DB)...");
+  const { fetchAccountsFromFirestore } = require("../lib/firebaseClient");
+  let accounts = loadAccounts();
+  if (accounts.length === 0) accounts = await fetchAccountsFromFirestore();
   if (accounts.length !== 14) {
     console.error(`❌ Expected 14 accounts, found ${accounts.length}`);
     auditPassed = false;
@@ -64,7 +66,7 @@ const { fetchWithRetry } = require("../lib/http");
 
   // 4. Audit Firebase Firestore Cloud DB
   console.log("\n🔍 [4/6] Auditing 100% Cloud-Native Firebase Firestore DB...");
-  const { getFirestoreStatus, fetchAccountsFromFirestore } = require("../lib/firebaseClient");
+  const { getFirestoreStatus } = require("../lib/firebaseClient");
   const cloudAccounts = await fetchAccountsFromFirestore();
   const fStatus = getFirestoreStatus();
   console.log(`✅ Firebase Cloud DB: ${cloudAccounts.length}/14 Accounts Active in Cloud Store (Project: ${fStatus.projectId})`);
