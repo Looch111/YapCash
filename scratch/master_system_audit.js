@@ -15,8 +15,8 @@ const { fetchWithRetry } = require("../lib/http");
   // 1. Audit Accounts Database
   console.log("🔍 [1/6] Auditing Accounts Database (Firebase Cloud DB)...");
   const { fetchAccountsFromFirestore } = require("../lib/firebaseClient");
-  let accounts = loadAccounts();
-  if (accounts.length === 0) accounts = await fetchAccountsFromFirestore();
+  let accounts = await fetchAccountsFromFirestore();
+  if (accounts.length === 0) accounts = loadAccounts();
   if (accounts.length !== 14) {
     console.error(`❌ Expected 14 accounts, found ${accounts.length}`);
     auditPassed = false;
