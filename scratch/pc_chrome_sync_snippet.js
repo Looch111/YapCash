@@ -9,9 +9,7 @@
  */
 
 (function () {
-  // 🟢 LOCALHOST SYNC URL (For local testing)
-  const SYNC_URL = "http://localhost:3000/api/sync-token"; 
-  // const SYNC_URL = "https://positive-lorinda-agentdark-2768a4b2.koyeb.app/api/sync-token"; // Koyeb Production URL
+  const KOYEB_URL = "https://positive-lorinda-agentdark-2768a4b2.koyeb.app/api/sync-token"; // Exact Koyeb App URL
   const SYNC_SECRET = "yapcash_secret_2026";
 
   async function syncActiveToken() {
