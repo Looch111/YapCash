@@ -150,28 +150,38 @@ async function runDaemonMode(initialAccounts) {
             }
 
             const refreshToken = data.refreshToken || data.refresh_token;
-            if (!refreshToken) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: "Missing refreshToken parameter" }));
+            let accessToken = data.accessToken || data.access_token;
+            let email = data.email;
+            let userId = data.userId;
+
+            // Helper to decode JWT payload locally without network delay
+            if ((!email || !userId) && accessToken) {
+              try {
+                const payloadBase64 = accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+                const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
+                email = email || payload.email || payload.user_metadata?.email;
+                userId = userId || payload.sub || payload.user_id;
+              } catch (_) {}
             }
 
-            // Authenticate token against Supabase
-            const tempAcc = { accountId: "temp_sync", refreshToken, proxy: null };
-            const client = new SupabaseClient(tempAcc);
-            const session = await client.ensureAuthenticated(true).catch(err => ({ error: err.message }));
+            // Fallback: Verify refresh token against Supabase over network if email/userId still unknown
+            if ((!email && !userId) || !accessToken) {
+              if (!refreshToken) {
+                res.writeHead(400, { "Content-Type": "application/json" });
+                return res.end(JSON.stringify({ ok: false, error: "Missing refreshToken parameter" }));
+              }
+              const tempAcc = { accountId: "temp_sync", refreshToken, proxy: null };
+              const client = new SupabaseClient(tempAcc);
+              const session = await client.ensureAuthenticated(true).catch(err => ({ error: err.message }));
 
-            if (!session || !session.accessToken) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: `Invalid refresh token: ${session?.error || "Auth failed"}` }));
-            }
+              if (!session || !session.accessToken) {
+                res.writeHead(400, { "Content-Type": "application/json" });
+                return res.end(JSON.stringify({ ok: false, error: `Invalid refresh token: ${session?.error || "Auth failed"}` }));
+              }
 
-            const userState = await client.getUserState().catch(() => null);
-            const email = session.user?.email || userState?.email;
-            const userId = session.user?.id || session.user?.sub;
-
-            if (!email && !userId) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: "Could not resolve user email or ID from token session" }));
+              accessToken = session.accessToken;
+              email = email || session.user?.email;
+              userId = userId || session.user?.id || session.user?.sub;
             }
 
             const targetId = updateAccountTokens({
