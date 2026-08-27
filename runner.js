@@ -169,6 +169,11 @@ async function runDaemonMode(initialAccounts) {
             const email = session.user?.email || userState?.email;
             const userId = session.user?.id || session.user?.sub;
 
+            if (!email && !userId) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: "Could not resolve user email or ID from token session" }));
+            }
+
             const targetId = updateAccountTokens({
               accountId: data.accountId,
               email,
