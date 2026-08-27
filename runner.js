@@ -175,9 +175,6 @@ async function runDaemonMode(initialAccounts) {
               userId,
               refreshToken,
               accessToken: session.accessToken,
-              totalXp: userState?.total_xp ?? 0,
-              streak: userState?.current_streak ?? 0,
-              lastActive: userState?.last_activity_date || new Date().toISOString().slice(0, 10),
             });
 
             console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
