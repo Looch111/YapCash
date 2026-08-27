@@ -9,10 +9,14 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "daemon";
 
-  const accounts = loadAccounts();
+  const { fetchAccountsFromFirestore } = require("./lib/firebaseClient");
+  let accounts = await fetchAccountsFromFirestore();
+  if (accounts.length === 0) {
+    accounts = loadAccounts();
+  }
 
   if (accounts.length === 0) {
-    console.error("❌ No accounts configured. Please add account credentials to accounts.json");
+    console.error("❌ No accounts found in Firebase Firestore Cloud DB or accounts.json");
     process.exit(1);
   }
 
