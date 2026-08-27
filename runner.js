@@ -230,6 +230,13 @@ async function runDaemonMode(initialAccounts) {
   console.log("Press Ctrl+C to stop daemon.");
   console.log("=======================================================\n");
 
+  // Initialize Firebase Firestore Cloud Hydration & Realtime Listener
+  const { startFirestoreRealtimeListener, fetchAccountsFromFirestore } = require("./lib/firebaseClient");
+  fetchAccountsFromFirestore().catch(() => {});
+  startFirestoreRealtimeListener(() => {
+    // Keep in-memory snapshot automatically updated with Firestore Cloud DB
+  });
+
   // Start background Telegram listener for 24/7 interactive pack commands & button polling
   startTelegramPollingListener();
 
