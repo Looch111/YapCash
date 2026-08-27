@@ -15,8 +15,8 @@ async function main() {
     accounts = loadAccounts();
   }
 
-  if (accounts.length === 0) {
-    console.error("❌ No accounts found in Firebase Firestore Cloud DB or accounts.json");
+  if (accounts.length === 0 && command !== "daemon") {
+    console.error("❌ No accounts found in Firebase Firestore Cloud DB. Please run daemon mode or sync tokens via HTTP API.");
     process.exit(1);
   }
 
@@ -254,13 +254,21 @@ async function runDaemonMode(initialAccounts) {
 
   while (true) {
     const accounts = loadAccounts(); // reload fresh accounts list
+    if (!accounts || accounts.length === 0) {
+      console.log(`\n⏳ [Daemon Active & Listening] 0 accounts found in Cloud DB.`);
+      console.log(`   🌐 HTTP Token Sync API is active on PORT ${process.env.PORT || 8000}`);
+      console.log(`   📱 Telegram Control Bot is active`);
+      console.log(`   Awaiting incoming token syncs from Chrome Extension... (Retrying in 15s)`);
+      await new Promise((r) => setTimeout(r, 15000));
+      continue;
+    }
+
     console.log(`\n⏰ [Cycle #${cycleCount}] Distributing ${accounts.length} accounts across 24 hours...`);
 
     // Shuffle accounts order randomly each cycle so execution order changes daily
     const shuffledAccounts = [...accounts].sort(() => Math.random() - 0.5);
 
     // Calculate base interval slot per account (24 hours divided by total accounts)
-    // For 14 accounts: 24h / 14 = ~102 minutes per slot
     const totalDayMs = 24 * 60 * 60 * 1000;
     const baseSlotMs = Math.floor(totalDayMs / shuffledAccounts.length);
 
