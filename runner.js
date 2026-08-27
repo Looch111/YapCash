@@ -226,14 +226,6 @@ async function runDaemonMode(initialAccounts) {
     console.warn("⚠️ Could not start HTTP server:", err.message);
   }
 
-  console.log("\n=======================================================");
-  console.log(" 🤖 YapCash 24-Hour Randomized Staggered Daemon");
-  console.log("=======================================================");
-  console.log("Accounts are randomly spaced across 24 hours to mimic");
-  console.log("100% natural human usage patterns and prevent detection.");
-  console.log("Press Ctrl+C to stop daemon.");
-  console.log("=======================================================\n");
-
   // Initialize Firebase Firestore Cloud Hydration & Realtime Listener
   const { startFirestoreRealtimeListener, fetchAccountsFromFirestore } = require("./lib/firebaseClient");
   fetchAccountsFromFirestore().catch(() => {});
@@ -250,19 +242,43 @@ async function runDaemonMode(initialAccounts) {
     console.warn("⚠️ Could not send server boot Telegram notification:", err.message);
   });
 
+  let tokenSignalResolver = null;
+  const { onAccountsUpdated } = require("./lib/accountManager");
+  onAccountsUpdated(() => {
+    if (typeof tokenSignalResolver === "function") {
+      tokenSignalResolver();
+      tokenSignalResolver = null;
+    }
+  });
+
+  let initialBannerPrinted = false;
   let cycleCount = 1;
 
   while (true) {
     const accounts = loadAccounts(); // reload fresh accounts list
     if (!accounts || accounts.length === 0) {
-      console.log(`\n⏳ [Daemon Active & Listening] 0 accounts found in Cloud DB.`);
-      console.log(`   🌐 HTTP Token Sync API is active on PORT ${process.env.PORT || 8000}`);
-      console.log(`   📱 Telegram Control Bot is active`);
-      console.log(`   Awaiting incoming token syncs from Chrome Extension... (Retrying in 15s)`);
-      await new Promise((r) => setTimeout(r, 15000));
+      if (!initialBannerPrinted) {
+        console.log("\n=======================================================");
+        console.log(" ⚡ YAPCASH CLOUD ENGINE ACTIVE & WAITING FOR TOKENS");
+        console.log("=======================================================");
+        console.log(` 🌐 HTTP Token Sync API : PORT ${process.env.PORT || 8000} (Active)`);
+        console.log(` 📱 Telegram Control Bot: Active`);
+        console.log(` 🔥 Firebase Store      : 0 Accounts Registered`);
+        console.log("-------------------------------------------------------");
+        console.log(" 🟢 System online. Passively waiting for Chrome tokens...");
+        console.log("=======================================================\n");
+        initialBannerPrinted = true;
+      }
+
+      // Silent Event-Driven Wait (No repeated logs or 15s spams)
+      await new Promise(resolve => {
+        tokenSignalResolver = resolve;
+        setTimeout(resolve, 30000); // 30s silent safety check
+      });
       continue;
     }
 
+    initialBannerPrinted = false; // Reset banner flag for when all accounts are removed
     console.log(`\n⏰ [Cycle #${cycleCount}] Distributing ${accounts.length} accounts across 24 hours...`);
 
     // Shuffle accounts order randomly each cycle so execution order changes daily
