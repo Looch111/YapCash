@@ -9,7 +9,7 @@
  */
 
 (function () {
-  const KOYEB_URL = "https://positive-lorinda-agentdark-2768a4b2.koyeb.app/api/sync-token"; // Exact Koyeb App URL
+  const KOYEB_URL = "https://conservation-lory-agentdark-7e1cc3c7.koyeb.app/api/sync-token"; // Live Koyeb App URL
   const SYNC_SECRET = "yapcash_secret_2026";
 
   async function syncActiveToken() {
