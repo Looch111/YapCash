@@ -251,9 +251,21 @@ async function runDaemonMode(initialAccounts) {
   const { onAccountsUpdated, notifyAccountChangeListeners } = require("./lib/accountManager");
 
   console.log("⚡ Hydrating Firestore accounts from Firebase Cloud DB...");
-  await fetchAccountsFromFirestore().catch((err) => {
-    console.warn("⚠️ Firestore initial hydration warning:", err.message);
-  });
+  let bootAccounts = await fetchAccountsFromFirestore().catch(() => []);
+  
+  // If Firestore hydration returned 0 on first cold boot attempt, retry up to 3 times to allow Koyeb network initialization
+  let attempts = 0;
+  while ((!bootAccounts || bootAccounts.length === 0) && attempts < 3) {
+    attempts++;
+    await new Promise((r) => setTimeout(r, 800));
+    bootAccounts = await fetchAccountsFromFirestore().catch(() => []);
+  }
+
+  if (bootAccounts && bootAccounts.length > 0) {
+    console.log(`✅ [Firestore Hydration] Successfully loaded ${bootAccounts.length} account(s) from Cloud DB.`);
+  } else {
+    console.log("ℹ️ [Firestore Hydration] 0 accounts found in Cloud DB. Engine active in passive waiting mode.");
+  }
 
   startFirestoreRealtimeListener((freshAccounts) => {
     // Keep in-memory snapshot automatically updated & notify change listeners live
