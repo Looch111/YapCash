@@ -15,7 +15,7 @@ async function main() {
     accounts = loadAccounts();
   }
 
-  if (accounts.length === 0 && command !== "daemon") {
+  if (accounts.length === 0 && command !== "daemon" && command !== "audit") {
     console.error("❌ No accounts found in Firebase Firestore Cloud DB. Please run daemon mode or sync tokens via HTTP API.");
     process.exit(1);
   }
@@ -23,6 +23,10 @@ async function main() {
   switch (command) {
     case "daemon":
       await runDaemonMode(accounts);
+      break;
+
+    case "audit":
+      require("./scratch/master_system_audit.js");
       break;
 
     case "status":
@@ -138,7 +142,17 @@ async function runDaemonMode(initialAccounts) {
       // 2. Passive Token Sync POST endpoint
       if (req.method === "POST" && url.pathname === "/api/sync-token") {
         let body = "";
-        req.on("data", chunk => { body += chunk; });
+        let bodySize = 0;
+        req.on("data", chunk => {
+          bodySize += chunk.length;
+          if (bodySize > 100 * 1024) {
+            req.destroy();
+            res.writeHead(413, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ ok: false, error: "Payload Too Large (>100KB)" }));
+          }
+          body += chunk;
+        });
+
         req.on("end", async () => {
           try {
             const data = JSON.parse(body || "{}");
@@ -174,7 +188,7 @@ async function runDaemonMode(initialAccounts) {
               return res.end(JSON.stringify({ ok: false, error: "Could not resolve user email or ID from token session" }));
             }
 
-            const targetId = updateAccountTokens({
+            const targetId = await updateAccountTokens({
               accountId: data.accountId,
               email,
               userId,
@@ -183,7 +197,7 @@ async function runDaemonMode(initialAccounts) {
               rewardCountry: userState?.reward_country || "US",
             });
 
-            console.log(`⚡ [Passive Sync] Token updated live on Koyeb for ${targetId} (${email || "N/A"})`);
+            console.log(`⚡ [Passive Sync] Token updated & persisted to Firebase for ${targetId} (${email || "N/A"})`);
 
             const accEntry = {
               accountId: targetId,
@@ -204,7 +218,7 @@ async function runDaemonMode(initialAccounts) {
               ok: true,
               accountId: targetId,
               email: email || "N/A",
-              message: `Token updated live on Koyeb for ${targetId}!`,
+              message: `Token updated live on Koyeb and persisted to Firebase for ${targetId}!`,
             }));
           } catch (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
@@ -355,15 +369,19 @@ async function runDaemonMode(initialAccounts) {
 
       // If not the last account in cycle, calculate randomized sleep time until next account slot
       if (i < shuffledAccounts.length - 1) {
-        // Dynamically split 24 hours evenly among total active accounts with ±20% organic human jitter
-        const minSleepMs = Math.max(3 * 60 * 1000, Math.floor(baseSlotMs * 0.8));
-        const maxSleepMs = Math.floor(baseSlotMs * 1.2);
+        // Dynamically split 24 hours evenly among total active accounts (checking for live additions) with ±20% organic human jitter
+        const liveAccounts = loadAccounts();
+        const currentTotal = Math.max(shuffledAccounts.length, liveAccounts.length);
+        const dynamicBaseSlotMs = Math.floor(totalDayMs / currentTotal);
+
+        const minSleepMs = Math.max(3 * 60 * 1000, Math.floor(dynamicBaseSlotMs * 0.8));
+        const maxSleepMs = Math.floor(dynamicBaseSlotMs * 1.2);
         const targetSleepMs = Math.floor(Math.random() * (maxSleepMs - minSleepMs + 1)) + minSleepMs;
 
         const formattedDelay = formatDuration(targetSleepMs);
         const nextAccountTime = new Date(Date.now() + targetSleepMs).toISOString();
 
-        console.log(`\n🎲 Next account (${shuffledAccounts[i + 1].accountId}) scheduled in: ${formattedDelay}`);
+        console.log(`\n🎲 Next account (${shuffledAccounts[i + 1].accountId}) scheduled in: ${formattedDelay} (Active Accounts: ${currentTotal})`);
         console.log(`📅 Target execution time: ${nextAccountTime} (UTC)`);
         console.log(`-------------------------------------------------------\n`);
 

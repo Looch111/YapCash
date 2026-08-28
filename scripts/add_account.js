@@ -26,7 +26,7 @@ if (!refreshToken) {
 
   console.log(`✅ Authenticated user: ${email} (ID: ${userId})`);
 
-  const accountId = updateAccountTokens({
+  const accountId = await updateAccountTokens({
     email,
     userId,
     refreshToken,
