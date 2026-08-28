@@ -37,7 +37,7 @@ async function main() {
       await runAllAccounts(accounts);
       break;
 
-    case "run":
+    case "run": {
       const targetId = args[1];
       if (!targetId) {
         console.error("❌ Usage: node runner.js run <accountId>");
@@ -45,6 +45,7 @@ async function main() {
       }
       await runSingleAccount(accounts, targetId);
       break;
+    }
 
     case "spin":
       await runTaskForAccounts(accounts, args[1], claimDailySpin, "Daily Spin");
@@ -54,24 +55,27 @@ async function main() {
       await runTaskForAccounts(accounts, args[1], claimDailyBonus, "Daily Bonus");
       break;
 
-    case "week-bonus":
+    case "week-bonus": {
       const day = args[2] ? parseInt(args[2], 10) : null;
       await runTaskForAccounts(accounts, args[1], (client) => claimWeekBonusCalendar(client, day), "Weekly Bonus Calendar");
       break;
+    }
 
     case "recover-cards":
       await runTaskForAccounts(accounts, args[1], (client) => recoverUnclaimedGiftCards(client), "Gift Card Recovery");
       break;
 
-    case "sync":
+    case "sync": {
       const xpAmount = parseInt(args[2] || "15", 10);
       await runTaskForAccounts(accounts, args[1], (client) => syncXp(client, xpAmount), `XP Sync (${xpAmount} XP)`);
       break;
+    }
 
-    case "open-pack":
+    case "open-pack": {
       const packId = args[2] || "standard";
       await runTaskForAccounts(accounts, args[1], (client) => openRewardPack(client, packId), `Open Pack (${packId})`);
       break;
+    }
 
     case "smart-drain":
       const { drainAccountPacks } = require("./lib/apiTasks");
@@ -320,6 +324,8 @@ async function runDaemonMode(initialAccounts) {
     initialBannerPrinted = false; // Reset banner flag for when all accounts are removed
     console.log(`\n⏰ [Cycle #${cycleCount}] Distributing ${accounts.length} accounts across 24 hours...`);
 
+    const daemonReportAccounts = [];
+
     // Shuffle accounts order randomly each cycle so execution order changes daily
     const shuffledAccounts = [...accounts].sort(() => Math.random() - 0.5);
 
@@ -340,7 +346,8 @@ async function runDaemonMode(initialAccounts) {
       const client = new SupabaseClient(acc);
       try {
         const session = await client.ensureAuthenticated();
-        updateAccountTokens(acc.accountId, session);
+        // Pass full account object so updateAccountTokens can match by userId/email correctly
+        await updateAccountTokens(acc, session);
 
         const initialState = await client.getUserState().catch(() => null);
         const startXp = initialState?.total_xp ?? 0;
@@ -381,9 +388,21 @@ async function runDaemonMode(initialAccounts) {
           packOpens: packResults,
         };
 
+        daemonReportAccounts.push(accEntry);
         console.log(`  ✅ Routine completed for ${acc.accountId} (XP: ${startXp} ➔ ${endXp}, Streak: ${accEntry.streak})`);
+
+        // Send per-account Telegram notification immediately after processing
+        const tgRes = await sendAccountReport(accEntry).catch(err => ({ ok: false, error: err.message }));
+        if (tgRes.ok) {
+          console.log(`  📱 Telegram notification sent for ${acc.accountId}`);
+        } else {
+          console.warn(`  ⚠️ Telegram notification failed for ${acc.accountId}: ${tgRes.error || "Unknown"}`);
+        }
       } catch (err) {
         console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
+        const errEntry = { accountId: acc.accountId, error: err.message };
+        daemonReportAccounts.push(errEntry);
+        await sendAccountReport(errEntry).catch(() => {});
       }
 
       // If not the last account in cycle, calculate randomized sleep time until next account slot
@@ -409,6 +428,11 @@ async function runDaemonMode(initialAccounts) {
     }
 
     console.log(`\n✨ [Cycle #${cycleCount} Complete] All ${shuffledAccounts.length} account(s) processed for today.`);
+
+    // Send end-of-cycle daily summary to Telegram
+    await sendDailyReport({ accounts: daemonReportAccounts }).catch(err => {
+      console.warn("⚠️ Failed to send Telegram daily summary:", err.message);
+    });
 
     // Calculate sleep time until next 24h cycle / UTC Midnight Reset (00:05 UTC)
     const msUntilReset = getMsUntilNextUtcReset();
@@ -587,11 +611,15 @@ async function runSingleAccount(accounts, targetId) {
   const client = new SupabaseClient(acc);
   try {
     const session = await client.ensureAuthenticated();
-    updateAccountTokens(acc.accountId, session);
+    await updateAccountTokens(acc, session);
 
     const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
-
-
+    console.log(`\n✅ Single account routine complete for ${targetId}:`);
+    console.log(`  └─ Daily Bonus : ${summary.dailyBonus?.message || "N/A"}`);
+    console.log(`  └─ Daily Spin  : ${summary.dailySpin?.message || "N/A"}`);
+    console.log(`  └─ Week Bonus  : ${summary.weekBonus?.message || "N/A"}`);
+    console.log(`  └─ XP Farmed   : ${summary.xpSync?.message || "N/A"}`);
+    console.log(`  └─ Smart Pack  : ${summary.smartPackOpen?.message || "N/A"}`);
   } catch (err) {
     console.error(`  ❌ Failed: ${err.message}`);
   }

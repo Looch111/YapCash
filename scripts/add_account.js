@@ -1,4 +1,4 @@
-const { SupabaseClient } = require("../lib/supabaseClient");
+const SupabaseClient = require("../lib/supabaseClient");
 const { updateAccountTokens } = require("../lib/accountManager");
 const { fetchAccountsFromFirestore } = require("../lib/firebaseClient");
 
