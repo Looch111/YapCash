@@ -280,8 +280,9 @@ async function runDaemonMode(initialAccounts) {
   startTelegramPollingListener();
 
   // Send automatic Server Boot Notification to Telegram on startup
+  // Pass the already-hydrated accounts directly — avoids a second Firestore fetch that races and shows 0
   const { sendServerBootNotification } = require("./lib/telegram");
-  await sendServerBootNotification().catch((err) => {
+  await sendServerBootNotification(bootAccounts || []).catch((err) => {
     console.warn("⚠️ Could not send server boot Telegram notification:", err.message);
   });
 
@@ -390,19 +391,10 @@ async function runDaemonMode(initialAccounts) {
 
         daemonReportAccounts.push(accEntry);
         console.log(`  ✅ Routine completed for ${acc.accountId} (XP: ${startXp} ➔ ${endXp}, Streak: ${accEntry.streak})`);
-
-        // Send per-account Telegram notification immediately after processing
-        const tgRes = await sendAccountReport(accEntry).catch(err => ({ ok: false, error: err.message }));
-        if (tgRes.ok) {
-          console.log(`  📱 Telegram notification sent for ${acc.accountId}`);
-        } else {
-          console.warn(`  ⚠️ Telegram notification failed for ${acc.accountId}: ${tgRes.error || "Unknown"}`);
-        }
       } catch (err) {
         console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
         const errEntry = { accountId: acc.accountId, error: err.message };
         daemonReportAccounts.push(errEntry);
-        await sendAccountReport(errEntry).catch(() => {});
       }
 
       // If not the last account in cycle, calculate randomized sleep time until next account slot
