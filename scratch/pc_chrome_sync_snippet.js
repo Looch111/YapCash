@@ -1,5 +1,5 @@
 (function () {
-  const KOYEB_URL = "https://bizarre-jacinta-agentdark-f8237874.koyeb.app/api/sync-token";
+  const KOYEB_URL = "https://gothic-shina-agentdark-c238bd90.koyeb.app/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   async function syncActiveToken() {
