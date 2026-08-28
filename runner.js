@@ -248,7 +248,10 @@ async function runDaemonMode(initialAccounts) {
 
   // Initialize Firebase Firestore Cloud Hydration & Realtime Listener
   const { startFirestoreRealtimeListener, fetchAccountsFromFirestore } = require("./lib/firebaseClient");
-  fetchAccountsFromFirestore().catch(() => {});
+  console.log("⚡ Hydrating Firestore accounts from Firebase Cloud DB...");
+  await fetchAccountsFromFirestore().catch((err) => {
+    console.warn("⚠️ Firestore initial hydration warning:", err.message);
+  });
   startFirestoreRealtimeListener(() => {
     // Keep in-memory snapshot automatically updated with Firestore Cloud DB
   });
