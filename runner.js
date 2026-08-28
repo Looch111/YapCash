@@ -248,12 +248,16 @@ async function runDaemonMode(initialAccounts) {
 
   // Initialize Firebase Firestore Cloud Hydration & Realtime Listener
   const { startFirestoreRealtimeListener, fetchAccountsFromFirestore } = require("./lib/firebaseClient");
+  const { onAccountsUpdated, notifyAccountChangeListeners } = require("./lib/accountManager");
+
   console.log("⚡ Hydrating Firestore accounts from Firebase Cloud DB...");
   await fetchAccountsFromFirestore().catch((err) => {
     console.warn("⚠️ Firestore initial hydration warning:", err.message);
   });
-  startFirestoreRealtimeListener(() => {
-    // Keep in-memory snapshot automatically updated with Firestore Cloud DB
+
+  startFirestoreRealtimeListener((freshAccounts) => {
+    // Keep in-memory snapshot automatically updated & notify change listeners live
+    notifyAccountChangeListeners(freshAccounts);
   });
 
   // Start background Telegram listener for 24/7 interactive pack commands & button polling
@@ -266,9 +270,9 @@ async function runDaemonMode(initialAccounts) {
   });
 
   let tokenSignalResolver = null;
-  const { onAccountsUpdated } = require("./lib/accountManager");
   onAccountsUpdated(() => {
     if (typeof tokenSignalResolver === "function") {
+      console.log("⚡ [Daemon Engine] Account list change signal received. Rescaling schedule live...");
       tokenSignalResolver();
       tokenSignalResolver = null;
     }
