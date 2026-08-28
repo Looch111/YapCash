@@ -1,6 +1,4 @@
-try { require("dns").setDefaultResultOrder("ipv4first"); } catch (_) {}
-
-const { loadAccounts, updateAccountTokens } = require("./lib/accountManager");
+const { loadAccounts, updateAccountTokens, updateAccountState } = require("./lib/accountManager");
 const SupabaseClient = require("./lib/supabaseClient");
 const { runFullDailyRoutine, claimDailyBonus, claimDailySpin, claimWeekBonusCalendar, recoverUnclaimedGiftCards, syncXp, openRewardPack } = require("./lib/apiTasks");
 const { sendDailyReport, sendAccountReport, cleanupPreviousRoutineMessages, startTelegramPollingListener } = require("./lib/telegram");
@@ -389,8 +387,15 @@ async function runDaemonMode(initialAccounts) {
           packOpens: packResults,
         };
 
+        await updateAccountState(acc.accountId, {
+          totalXp: endXp,
+          streak: accEntry.streak,
+          rewardCountry: accEntry.rewardCountry,
+          lastRunAt: new Date().toISOString(),
+        }).catch(() => {});
+
         daemonReportAccounts.push(accEntry);
-        console.log(`  ✅ Routine completed for ${acc.accountId} (XP: ${startXp} ➔ ${endXp}, Streak: ${accEntry.streak})`);
+        console.log(`  ✅ Routine completed & persisted to Firebase for ${acc.accountId} (XP: ${startXp} ➔ ${endXp}, Streak: ${accEntry.streak})`);
       } catch (err) {
         console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
         const errEntry = { accountId: acc.accountId, error: err.message };
@@ -606,7 +611,17 @@ async function runSingleAccount(accounts, targetId) {
     await updateAccountTokens(acc, session);
 
     const summary = await runFullDailyRoutine(client, { syncXpAmount: 500 });
-    console.log(`\n✅ Single account routine complete for ${targetId}:`);
+    const finalState = await client.getUserState().catch(() => null);
+    if (finalState) {
+      await updateAccountState(acc.accountId, {
+        totalXp: finalState.total_xp,
+        streak: finalState.current_streak,
+        rewardCountry: finalState.reward_country,
+        lastRunAt: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
+    console.log(`\n✅ Single account routine complete & persisted to Firebase for ${targetId}:`);
     console.log(`  └─ Daily Bonus : ${summary.dailyBonus?.message || "N/A"}`);
     console.log(`  └─ Daily Spin  : ${summary.dailySpin?.message || "N/A"}`);
     console.log(`  └─ Week Bonus  : ${summary.weekBonus?.message || "N/A"}`);
