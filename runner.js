@@ -392,8 +392,20 @@ async function runDaemonMode(initialAccounts) {
       }
     }
 
-    console.log(`\n✨ [Cycle #${cycleCount} Complete] All 14 accounts processed across 24 hours.`);
-    console.log(`🔄 Restarting next 24-hour cycle with new randomized order...\n`);
+    console.log(`\n✨ [Cycle #${cycleCount} Complete] All ${shuffledAccounts.length} account(s) processed for today.`);
+
+    // Calculate sleep time until next 24h cycle / UTC Midnight Reset (00:05 UTC)
+    const msUntilReset = getMsUntilNextUtcReset();
+    const formattedResetTime = formatDuration(msUntilReset);
+    console.log(`🌙 [24h Cycle Complete] Sleeping ${formattedResetTime} until 00:05 UTC reset...`);
+    console.log(`🔄 Next daily cycle will start with new randomized account order.\n`);
+
+    // Interruptible sleep: wakes up early if a new token POST triggers tokenSignalResolver!
+    await new Promise((resolve) => {
+      tokenSignalResolver = resolve;
+      setTimeout(resolve, msUntilReset);
+    });
+
     cycleCount++;
   }
 }
