@@ -1,61 +1,113 @@
 (function () {
-  const KOYEB_URL = "https://gothic-shina-agentdark-c238bd90.koyeb.app/api/sync-token";
+  // --------------------------------------------------------------------------
+  // LOCAL PC SANDBOX vs CLOUD HOSTING CONFIGURATION:
+  // For Local PC Sandbox mode: "http://localhost:8000/api/sync-token"
+  // For Koyeb Cloud Hosting: "https://gothic-shina-agentdark-c238bd90.koyeb.app/api/sync-token"
+  // --------------------------------------------------------------------------
+  const SYNC_URL = "http://localhost:8000/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
+
+  function extractTokenFromObject(obj) {
+    if (!obj || typeof obj !== "object") return null;
+    let refreshToken = obj.refreshToken || obj.refresh_token || obj.currentSession?.refresh_token;
+    let accessToken = obj.accessToken || obj.access_token || obj.currentSession?.access_token;
+    let email = obj.email || obj.user?.email;
+    let userId = obj.userId || obj.user?.id || obj.user?.sub;
+
+    if (!refreshToken && obj.session) {
+      refreshToken = obj.session.refresh_token || obj.session.refreshToken;
+      accessToken = accessToken || obj.session.access_token || obj.session.accessToken;
+      if (obj.session.user) {
+        email = email || obj.session.user.email;
+        userId = userId || obj.session.user.id || obj.session.user.sub;
+      }
+    }
+
+    return (refreshToken || accessToken) ? { refreshToken, accessToken, email, userId } : null;
+  }
+
+  let lastSyncedTokenHash = "";
+  let lastSyncTime = 0;
 
   async function syncActiveToken() {
     try {
-      if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.local) {
-        console.warn("⚠️ Run this snippet inside Chrome DevTools (Extension Popup / Background Inspect page)");
-        return;
+      const now = Date.now();
+      let data = {};
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+        data = await new Promise(resolve => chrome.storage.local.get(null, resolve));
       }
 
-      chrome.storage.local.get(null, async (data) => {
-        let refreshToken = data.refreshToken || (data.session && data.session.refresh_token) || null;
-        let accessToken = data.accessToken || (data.session && data.session.access_token) || null;
-        let email = data.email || null;
-        let userId = data.userId || null;
+      let extracted = extractTokenFromObject(data);
 
-        if (data["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
+      if (!extracted || (!extracted.refreshToken && !extracted.accessToken)) {
+        const allSources = [data];
+        if (typeof window !== "undefined" && window.localStorage) {
           try {
-            const parsed = typeof data["sb-gidoyrbvnffcwbzzweqb-auth-token"] === "string" 
-              ? JSON.parse(data["sb-gidoyrbvnffcwbzzweqb-auth-token"]) 
-              : data["sb-gidoyrbvnffcwbzzweqb-auth-token"];
-            
-            if (parsed) {
-              refreshToken = refreshToken || parsed.refresh_token || parsed.currentSession?.refresh_token;
-              accessToken = accessToken || parsed.access_token || parsed.currentSession?.access_token;
-              if (parsed.user) {
-                email = email || parsed.user.email;
-                userId = userId || parsed.user.id || parsed.user.sub;
-              }
+            const localObj = {};
+            for (let i = 0; i < window.localStorage.length; i++) {
+              const k = window.localStorage.key(i);
+              try { localObj[k] = JSON.parse(window.localStorage.getItem(k)); } catch (_) { localObj[k] = window.localStorage.getItem(k); }
             }
+            allSources.push(localObj);
           } catch (_) {}
         }
 
-        if (!refreshToken && !accessToken) {
-          console.warn("⚠️ No active YapCash token found in chrome.storage.local");
-          return;
+        for (const source of allSources) {
+          for (const key of Object.keys(source || {})) {
+            const val = source[key];
+            if (val && typeof val === "object") {
+              const res = extractTokenFromObject(val);
+              if (res && (res.refreshToken || res.accessToken)) {
+                extracted = res;
+                break;
+              }
+            } else if (typeof val === "string" && (val.includes("refresh_token") || val.includes("refreshToken") || val.includes("access_token"))) {
+              try {
+                const parsed = JSON.parse(val);
+                const res = extractTokenFromObject(parsed);
+                if (res && (res.refreshToken || res.accessToken)) {
+                  extracted = res;
+                  break;
+                }
+              } catch (_) {}
+            }
+          }
+          if (extracted && (extracted.refreshToken || extracted.accessToken)) break;
         }
+      }
 
-        console.log("⚡ Found active session! Syncing live to Koyeb...");
+      if (!extracted || (!extracted.refreshToken && !extracted.accessToken)) {
+        console.warn("⚠️ No active session tokens found in Chrome storage. Please ensure you are logged into YapCash on Chrome.");
+        return;
+      }
 
-        const response = await fetch(KOYEB_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-sync-key": SYNC_SECRET,
-          },
-          body: JSON.stringify({ refreshToken, accessToken, email, userId }),
-        }).catch(err => ({ ok: false, statusText: err.message }));
+      const currentHash = `${extracted.refreshToken || ""}:${extracted.accessToken || ""}:${extracted.email || ""}`;
+      if (currentHash === lastSyncedTokenHash && (now - lastSyncTime < 15000)) {
+        return; // Token unchanged and synced within last 15s
+      }
 
-        if (response.ok) {
-          const resData = await response.json();
-          console.log(`✅ [SUCCESS] Token auto-synced live to Koyeb for ${resData.accountId} (${resData.email})!`);
-          try { alert(`🟢 Success! Token updated live on Koyeb for ${resData.accountId} (${resData.email})`); } catch (_) {}
-        } else {
-          console.error("❌ Token sync failed:", response.statusText || response.status);
-        }
-      });
+      lastSyncedTokenHash = currentHash;
+      lastSyncTime = now;
+
+      console.log(`⚡ Found active session for ${extracted.email || "user"}! Syncing live to ${SYNC_URL}...`);
+
+      const response = await fetch(SYNC_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-sync-key": SYNC_SECRET,
+        },
+        body: JSON.stringify(extracted),
+      }).catch(err => ({ ok: false, statusText: err.message }));
+
+      if (response.ok) {
+        const resData = await response.json();
+        console.log(`✅ [SUCCESS] Token auto-synced live to sandbox/cloud for ${resData.accountId} (${resData.email})!`);
+        try { alert(`🟢 Success! Token updated live for ${resData.accountId} (${resData.email})`); } catch (_) {}
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        console.error(`❌ Token sync failed (HTTP ${response.status}):`, errJson.error || response.statusText);
+      }
     } catch (err) {
       console.error("❌ Sync Error:", err.message);
     }
@@ -65,11 +117,11 @@
 
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes) => {
-      if (changes.refreshToken || changes.session || changes["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
-        console.log("🔄 Detected YapCash account switch! Auto-syncing to Koyeb...");
+      if (changes.refreshToken || changes.accessToken || changes.session || changes["sb-gidoyrbvnffcwbzzweqb-auth-token"]) {
         syncActiveToken();
       }
     });
     console.log("🟢 Live passive token listener ACTIVE in Chrome!");
   }
 })();
+
