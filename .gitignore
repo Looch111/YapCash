@@ -1,7 +1,25 @@
+# Dependencies
 node_modules/
-*.tmp
-.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Credentials
+.env
+.env.local
+.env.production
+token.txt
+
+# Local Account State & Persistent Disk DBs
 accounts.json
 account_balances.json
+telegram_state.json
+wins.json
+pack_history.json
+*.tmp
 
-
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
