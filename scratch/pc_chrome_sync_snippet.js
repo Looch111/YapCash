@@ -49,7 +49,7 @@
               try { localObj[k] = JSON.parse(window.localStorage.getItem(k)); } catch (_) { localObj[k] = window.localStorage.getItem(k); }
             }
             allSources.push(localObj);
-          } catch (_) {}
+          } catch (_) { }
         }
 
         for (const source of allSources) {
@@ -69,7 +69,7 @@
                   extracted = res;
                   break;
                 }
-              } catch (_) {}
+              } catch (_) { }
             }
           }
           if (extracted && (extracted.refreshToken || extracted.accessToken)) break;
@@ -103,7 +103,7 @@
       if (response.ok) {
         const resData = await response.json();
         console.log(`✅ [SUCCESS] Token auto-synced live to sandbox/cloud for ${resData.accountId} (${resData.email})!`);
-        try { alert(`🟢 Success! Token updated live for ${resData.accountId} (${resData.email})`); } catch (_) {}
+        try { alert(`🟢 Success! Token updated live for ${resData.accountId} (${resData.email})`); } catch (_) { }
       } else {
         const errJson = await response.json().catch(() => ({}));
         console.error(`❌ Token sync failed (HTTP ${response.status}):`, errJson.error || response.statusText);
