@@ -277,11 +277,11 @@ async function runDaemonMode(initialAccounts) {
   console.log("⚡ Hydrating Firestore accounts from Firebase Cloud DB...");
   let bootAccounts = await fetchAccountsFromFirestore().catch(() => []);
   
-  // Retry up to 3 times to allow network initialization
+  // Retry up to 10 times (10s total) on cloud container startup to allow network initialization
   let attempts = 0;
-  while ((!bootAccounts || bootAccounts.length === 0) && attempts < 3) {
+  while ((!bootAccounts || bootAccounts.length === 0) && attempts < 10) {
     attempts++;
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 1000));
     bootAccounts = await fetchAccountsFromFirestore().catch(() => []);
   }
 
