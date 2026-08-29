@@ -177,34 +177,53 @@ async function runDaemonMode(initialAccounts) {
               return res.end(JSON.stringify({ ok: false, error: "Missing session tokens (both refreshToken and accessToken missing)" }));
             }
 
-            // Authenticate token against Supabase using accessToken if valid, or refreshToken
-            const tempAcc = { accountId: "temp_sync", refreshToken, accessToken, proxy: null };
-            const client = new SupabaseClient(tempAcc);
-            const session = await client.ensureAuthenticated().catch(err => ({ error: err.message }));
+            let activeAccessToken = accessToken;
+            let activeRefreshToken = refreshToken;
+            let email = data.email || null;
+            let userId = data.userId || null;
+            let rewardCountry = "US";
 
-            if (!session || !session.accessToken) {
-              console.warn(`⚠️ [Passive Sync 400] Supabase Auth Failed: ${session?.error || "Invalid/Expired session tokens"}`);
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: `Invalid session tokens: ${session?.error || "Auth failed"}` }));
+            // 1. Fast 0ms JWT decoding for valid accessTokens (bypasses network delays)
+            if (activeAccessToken) {
+              try {
+                const payloadBase64 = activeAccessToken.split(".")[1];
+                const decoded = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf-8"));
+                const nowSec = Math.floor(Date.now() / 1000);
+                if (decoded.exp && decoded.exp > nowSec + 30) {
+                  email = email || decoded.email || decoded.user_metadata?.email || null;
+                  userId = userId || decoded.sub || null;
+                }
+              } catch (_) {}
             }
 
-            const userState = await client.getUserState().catch(() => null);
-            const email = session.user?.email || userState?.email;
-            const userId = session.user?.id || session.user?.sub;
+            // 2. Fallback to network authentication if JWT was expired or unparseable
+            if (!email || !userId) {
+              const tempAcc = { accountId: "temp_sync", refreshToken: activeRefreshToken, accessToken: activeAccessToken, proxy: null };
+              const client = new SupabaseClient(tempAcc);
+              const session = await client.ensureAuthenticated().catch(err => ({ error: err.message }));
 
-            if (!email && !userId) {
-              console.warn("⚠️ [Passive Sync 400] Could not resolve user email or ID from token.");
-              res.writeHead(400, { "Content-Type": "application/json" });
-              return res.end(JSON.stringify({ ok: false, error: "Could not resolve user email or ID from token session" }));
+              if (!session || !session.accessToken) {
+                console.warn(`⚠️ [Passive Sync 400] Supabase Auth Failed: ${session?.error || "Invalid/Expired session tokens"}`);
+                res.writeHead(400, { "Content-Type": "application/json" });
+                return res.end(JSON.stringify({ ok: false, error: `Invalid session tokens: ${session?.error || "Auth failed"}` }));
+              }
+
+              activeAccessToken = session.accessToken;
+              activeRefreshToken = session.refreshToken || activeRefreshToken;
+              email = session.user?.email || email;
+              userId = session.user?.id || session.user?.sub || userId;
+
+              const userState = await client.getUserState().catch(() => null);
+              if (userState && userState.reward_country) rewardCountry = userState.reward_country;
             }
 
             const targetId = await updateAccountTokens({
               accountId: data.accountId,
               email,
               userId,
-              refreshToken,
-              accessToken: session.accessToken,
-              rewardCountry: userState?.reward_country || "US",
+              refreshToken: activeRefreshToken,
+              accessToken: activeAccessToken,
+              rewardCountry,
             });
 
             console.log(`⚡ [Passive Sync] Token updated & persisted to Firebase for ${targetId} (${email || "N/A"})`);
