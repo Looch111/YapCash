@@ -2,9 +2,9 @@
   // --------------------------------------------------------------------------
   // LOCAL PC SANDBOX vs CLOUD HOSTING CONFIGURATION:
   // For Local PC Sandbox mode: "http://localhost:8000/api/sync-token"
-  // For Koyeb Cloud Hosting: "https://gothic-shina-agentdark-c238bd90.koyeb.app/api/sync-token"
+  // For Koyeb Cloud Hosting: "https://joyous-julietta-agentdark-531fbb1b.koyeb.app/api/sync-token"
   // --------------------------------------------------------------------------
-  const SYNC_URL = "http://localhost:8000/api/sync-token";
+  const SYNC_URL = "https://joyous-julietta-agentdark-531fbb1b.koyeb.app/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   function extractTokenFromObject(obj) {
