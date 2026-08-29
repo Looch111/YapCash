@@ -82,8 +82,8 @@
       }
 
       const currentHash = `${extracted.refreshToken || ""}:${extracted.accessToken || ""}:${extracted.email || ""}`;
-      if (currentHash === lastSyncedTokenHash && (now - lastSyncTime < 15000)) {
-        return; // Token unchanged and synced within last 15s
+      if (currentHash === lastSyncedTokenHash && (now - lastSyncTime < 30000)) {
+        return; // Token unchanged and synced within last 30s (prevents double execution)
       }
 
       lastSyncedTokenHash = currentHash;
