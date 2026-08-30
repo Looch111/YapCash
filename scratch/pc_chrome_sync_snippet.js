@@ -1,10 +1,11 @@
 (function () {
   // --------------------------------------------------------------------------
-  // LOCAL PC SANDBOX vs CLOUD HOSTING CONFIGURATION:
-  // For Local PC Sandbox mode: "http://localhost:8000/api/sync-token"
-  // For Koyeb Cloud Hosting: "https://worldwide-estel-agentdark-6b73caa5.koyeb.app/api/sync-token"
+  // HOSTING CONFIGURATION OPTIONS:
+  // Local PC Sandbox: "http://localhost:8000/api/sync-token"
+  // Koyeb Cloud: "https://worldwide-estel-agentdark-6b73caa5.koyeb.app/api/sync-token"
+  // Render Cloud: "https://yapcash.onrender.com/api/sync-token"
   // --------------------------------------------------------------------------
-  const SYNC_URL = "https://worldwide-estel-agentdark-6b73caa5.koyeb.app/api/sync-token";
+  const SYNC_URL = "https://yapcash.onrender.com/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   function extractTokenFromObject(obj) {
