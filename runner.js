@@ -182,6 +182,7 @@ async function runDaemonMode(initialAccounts) {
             let email = data.email || null;
             let userId = data.userId || null;
             let rewardCountry = "US";
+            let userState = null;
 
             // 1. Fast 0ms JWT decoding for valid accessTokens (bypasses network delays)
             if (activeAccessToken) {
@@ -213,7 +214,7 @@ async function runDaemonMode(initialAccounts) {
               email = session.user?.email || email;
               userId = session.user?.id || session.user?.sub || userId;
 
-              const userState = await client.getUserState().catch(() => null);
+              userState = await client.getUserState().catch(() => null);
               if (userState && userState.reward_country) rewardCountry = userState.reward_country;
             }
 
@@ -226,12 +227,17 @@ async function runDaemonMode(initialAccounts) {
               rewardCountry,
             });
 
+            if (!targetId) {
+              res.writeHead(503, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ ok: false, error: "Cloud DB unverified or unable to update tokens" }));
+            }
+
             console.log(`⚡ [Passive Sync] Token updated & persisted to Firebase for ${targetId} (${email || "N/A"})`);
 
             const accEntry = {
               accountId: targetId,
               email: email || "N/A",
-              rewardCountry: userState?.reward_country || "US",
+              rewardCountry: rewardCountry || "US",
               totalXp: userState?.total_xp ?? "N/A",
               streak: userState?.current_streak ?? "N/A",
             };

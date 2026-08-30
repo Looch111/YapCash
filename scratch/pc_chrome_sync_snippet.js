@@ -4,7 +4,7 @@
   // For Local PC Sandbox mode: "http://localhost:8000/api/sync-token"
   // For Koyeb Cloud Hosting: "https://joyous-julietta-agentdark-531fbb1b.koyeb.app/api/sync-token"
   // --------------------------------------------------------------------------
-  const SYNC_URL = "https://joyous-julietta-agentdark-531fbb1b.koyeb.app/api/sync-token";
+  const SYNC_URL = "http://localhost:8000/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   function extractTokenFromObject(obj) {
