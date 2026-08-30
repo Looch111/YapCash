@@ -9,6 +9,8 @@ yarn-error.log*
 .env.local
 .env.production
 token.txt
+*firebase-adminsdk*.json
+*service_account*.json
 
 # Local Account State & Persistent Disk DBs
 accounts.json
