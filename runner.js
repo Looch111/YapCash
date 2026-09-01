@@ -159,6 +159,7 @@ async function validateAccountsTokenStatus(accounts, options = {}) {
         throw new Error("Invalid session format");
       } catch (err) {
         console.warn(`  ⚠️ Token validation failed for ${acc.accountId} (${acc.email || "N/A"}): ${err.message}`);
+        acc.status = ACCOUNT_STATUS.FAILED;
         await updateAccountStatus(acc.accountId, ACCOUNT_STATUS.FAILED, err.message).catch(() => {});
         if (!silent) {
           await sendTokenExpiredAlert(acc.accountId, acc.email, err.message).catch(() => {});
