@@ -6,6 +6,17 @@ const { sendDailyReport, sendAccountReport, cleanupPreviousRoutineMessages, star
 // Global in-memory set to prevent duplicate processing on the same account concurrently
 const activeProcessingLocks = new Set();
 
+// Shared live state tracking for Telegram bot status rendering
+const liveDaemonState = {
+  currentlyRunningAccountId: null,
+  nextScheduledAccountId: null,
+  nextScheduledTimeMs: null,
+};
+
+function getLiveDaemonState() {
+  return liveDaemonState;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "daemon";
@@ -444,6 +455,10 @@ async function runDaemonMode(initialAccounts) {
       }
 
       activeProcessingLocks.add(acc.accountId);
+      liveDaemonState.currentlyRunningAccountId = acc.accountId;
+      liveDaemonState.nextScheduledAccountId = null;
+      liveDaemonState.nextScheduledTimeMs = null;
+
       await updateAccountStatus(acc.accountId, ACCOUNT_STATUS.ACTIVE).catch(() => {});
 
       console.log(`\n-------------------------------------------------------`);
@@ -511,6 +526,7 @@ async function runDaemonMode(initialAccounts) {
         daemonReportAccounts.push({ accountId: acc.accountId, error: err.message });
       } finally {
         activeProcessingLocks.delete(acc.accountId);
+        liveDaemonState.currentlyRunningAccountId = null;
       }
 
       // If not the last account in cycle, calculate randomized sleep time until next account slot
@@ -526,11 +542,19 @@ async function runDaemonMode(initialAccounts) {
         const formattedDelay = formatDuration(targetSleepMs);
         const nextAccountTime = new Date(Date.now() + targetSleepMs).toISOString();
 
+        if (shuffledAccounts[i + 1]) {
+          liveDaemonState.nextScheduledAccountId = shuffledAccounts[i + 1].accountId;
+          liveDaemonState.nextScheduledTimeMs = Date.now() + targetSleepMs;
+        }
+
         console.log(`\n🎲 Next account scheduled in: ${formattedDelay} (Pending Accounts: ${currentTotal})`);
         console.log(`📅 Target execution time: ${nextAccountTime} (UTC)`);
         console.log(`-------------------------------------------------------\n`);
 
         await new Promise((resolve) => setTimeout(resolve, targetSleepMs));
+
+        liveDaemonState.nextScheduledAccountId = null;
+        liveDaemonState.nextScheduledTimeMs = null;
       }
     }
 
@@ -810,8 +834,14 @@ Commands:
 `);
 }
 
-main().catch(err => {
-  console.error("Fatal Error:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error("Fatal Error:", err);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  getLiveDaemonState,
+};
 
