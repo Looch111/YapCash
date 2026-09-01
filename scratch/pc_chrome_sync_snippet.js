@@ -5,7 +5,7 @@
   // Koyeb Cloud: "https://worldwide-estel-agentdark-6b73caa5.koyeb.app/api/sync-token"
   // Render Cloud: "https://yapcash.onrender.com/api/sync-token"
   // --------------------------------------------------------------------------
-  const SYNC_URL = "https://yapcash.onrender.com/api/sync-token";
+  const SYNC_URL = "http://localhost:8000/api/sync-token";
   const SYNC_SECRET = "yapcash_secret_2026";
 
   function extractTokenFromObject(obj) {
