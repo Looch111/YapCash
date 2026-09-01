@@ -126,6 +126,53 @@ function formatDuration(ms) {
 }
 
 /**
+ * Fast parallel token validation scan for all registered accounts on startup / cycle init.
+ * Immediately dispatches Telegram alerts for any expired tokens.
+ */
+async function validateAccountsTokenStatus(accounts) {
+  if (!Array.isArray(accounts) || accounts.length === 0) return [];
+  console.log(`🔍 [Token Audit Engine] Performing fast parallel token validation on ${accounts.length} account(s)...`);
+
+  const { sendTokenExpiredAlert } = require("./lib/telegram");
+
+  const results = await Promise.all(
+    accounts.map(async (acc) => {
+      // Don't override PAUSED or STOPPED manual states
+      if (acc.status === ACCOUNT_STATUS.PAUSED || acc.status === ACCOUNT_STATUS.STOPPED) {
+        return { ok: false, accountId: acc.accountId, status: acc.status };
+      }
+
+      const client = new SupabaseClient(acc);
+      try {
+        const session = await Promise.race([
+          client.ensureAuthenticated(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Auth check timeout (5s)")), 5000)),
+        ]);
+
+        if (session && session.accessToken) {
+          if (session.accessToken !== acc.accessToken || session.refreshToken !== acc.refreshToken) {
+            await updateAccountTokens(acc, session).catch(() => {});
+          }
+          return { ok: true, accountId: acc.accountId };
+        }
+        throw new Error("Invalid session format");
+      } catch (err) {
+        console.warn(`  ⚠️ Token validation failed for ${acc.accountId} (${acc.email || "N/A"}): ${err.message}`);
+        await updateAccountStatus(acc.accountId, ACCOUNT_STATUS.FAILED, err.message).catch(() => {});
+        await sendTokenExpiredAlert(acc.accountId, acc.email, err.message).catch(() => {});
+        return { ok: false, accountId: acc.accountId, error: err.message };
+      }
+    })
+  );
+
+  const working = results.filter((r) => r.ok).length;
+  const failed = results.filter((r) => !r.ok).length;
+  console.log(`✅ [Token Audit Engine] Scan complete: ${working} Active & Ready | ⚠️ ${failed} Expired/Disabled`);
+
+  return results;
+}
+
+/**
  * Continuous 24-hour randomized staggered daemon scheduler loop.
  * Integrates persistent state recovery, real-time sync, and duplicate processing locks.
  */
@@ -338,6 +385,9 @@ async function runDaemonMode(initialAccounts) {
       }
       await updateAccountStatus(acc.accountId, acc.status).catch(() => {});
     }
+
+    // Perform Fast Parallel Token Audit Scan on Startup
+    await validateAccountsTokenStatus(bootAccounts);
   } else {
     console.log("ℹ️ [Firestore Hydration] 0 accounts found in Cloud DB. Engine active in passive waiting mode.");
   }
@@ -398,8 +448,8 @@ async function runDaemonMode(initialAccounts) {
 
     initialBannerPrinted = false;
 
-    // Filter accounts eligible for execution (PENDING or FAILED from today)
-    const eligibleAccounts = allAccounts.filter(a => a.status === ACCOUNT_STATUS.PENDING || !a.status || a.status === ACCOUNT_STATUS.FAILED);
+    // Filter accounts eligible for execution (PENDING active accounts only - FAILED/EXPIRED tokens are skipped until hot-synced)
+    const eligibleAccounts = allAccounts.filter(a => a.status === ACCOUNT_STATUS.PENDING || !a.status);
 
     if (eligibleAccounts.length === 0) {
       console.log(`\n🎉 [All Accounts Completed] All ${allAccounts.length} account(s) have completed routines for today.`);
