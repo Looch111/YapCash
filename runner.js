@@ -524,6 +524,9 @@ async function runDaemonMode(initialAccounts) {
         console.error(`  ❌ Error processing ${acc.accountId}: ${err.message}`);
         await updateAccountStatus(acc.accountId, ACCOUNT_STATUS.FAILED, err.message).catch(() => {});
         daemonReportAccounts.push({ accountId: acc.accountId, error: err.message });
+
+        const { sendTokenExpiredAlert } = require("./lib/telegram");
+        await sendTokenExpiredAlert(acc.accountId, acc.email, err.message).catch(() => {});
       } finally {
         activeProcessingLocks.delete(acc.accountId);
         liveDaemonState.currentlyRunningAccountId = null;
