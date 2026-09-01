@@ -6,25 +6,6 @@ const { sendDailyReport, sendAccountReport, cleanupPreviousRoutineMessages, star
 // Global in-memory set to prevent duplicate processing on the same account concurrently
 const activeProcessingLocks = new Set();
 
-// Live In-Memory Log Buffer for HTTP Streaming / Logs API
-const recentLogsBuffer = [];
-const MAX_RECENT_LOGS = 200;
-
-function appendToLogBuffer(level, args) {
-  const timeStr = new Date().toISOString();
-  const text = args.map((a) => (typeof a === "object" ? JSON.stringify(a) : a)).join(" ");
-  recentLogsBuffer.push(`[${timeStr}] [${level}] ${text}`);
-  if (recentLogsBuffer.length > MAX_RECENT_LOGS) recentLogsBuffer.shift();
-}
-
-const origLog = console.log;
-const origWarn = console.warn;
-const origErr = console.error;
-
-console.log = (...args) => { appendToLogBuffer("INFO", args); origLog.apply(console, args); };
-console.warn = (...args) => { appendToLogBuffer("WARN", args); origWarn.apply(console, args); };
-console.error = (...args) => { appendToLogBuffer("ERR ", args); origErr.apply(console, args); };
-
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "daemon";
@@ -282,13 +263,7 @@ async function runDaemonMode(initialAccounts) {
         return;
       }
 
-      // 3. Live Logs Viewer GET endpoint
-      if (req.method === "GET" && url.pathname === "/api/logs") {
-        res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-        return res.end(recentLogsBuffer.join("\n") || "No logs recorded yet.");
-      }
-
-      // 4. Server Process Reboot POST endpoint
+      // 3. Server Process Reboot POST endpoint
       if (req.method === "POST" && url.pathname === "/api/restart") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, message: "Koyeb server process rebooting..." }));
@@ -364,7 +339,7 @@ async function runDaemonMode(initialAccounts) {
         telegram.updateLiveTelegramMenu(freshAccounts).catch(() => {});
       }
     } catch (_) {}
-  });
+  }, 300000);
 
   // Start background Telegram listener for 24/7 interactive pack commands & button polling
   startTelegramPollingListener();
