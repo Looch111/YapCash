@@ -600,7 +600,8 @@ async function runDaemonMode(initialAccounts) {
           liveDaemonState.nextScheduledTimeMs = Date.now() + targetSleepMs;
         }
 
-        console.log(`\n🎲 Next account scheduled in: ${formattedDelay} (Pending Accounts: ${currentTotal})`);
+        const nextAccId = shuffledAccounts[i + 1]?.accountId || "Next Account";
+        console.log(`\n🎯 Next account (${nextAccId}) scheduled in: ${formattedDelay} (Pending Accounts: ${currentTotal})`);
         console.log(`📅 Target execution time: ${nextAccountTime} (UTC)`);
         console.log(`-------------------------------------------------------\n`);
 
