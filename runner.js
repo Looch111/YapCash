@@ -589,7 +589,9 @@ async function showStatus(accounts) {
       const client = new SupabaseClient(acc);
       try {
         const session = await client.ensureAuthenticated();
-        updateAccountTokens(acc.accountId, session);
+        if (session && (session.accessToken !== acc.accessToken || session.refreshToken !== acc.refreshToken)) {
+          updateAccountTokens(acc.accountId, session);
+        }
 
         let email = session.user?.email || acc.email;
         let userObj = session.user;
