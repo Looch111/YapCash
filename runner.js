@@ -129,8 +129,9 @@ function formatDuration(ms) {
  * Fast parallel token validation scan for all registered accounts on startup / cycle init.
  * Immediately dispatches Telegram alerts for any expired tokens.
  */
-async function validateAccountsTokenStatus(accounts) {
+async function validateAccountsTokenStatus(accounts, options = {}) {
   if (!Array.isArray(accounts) || accounts.length === 0) return [];
+  const silent = options.silent === true;
   console.log(`🔍 [Token Audit Engine] Performing fast parallel token validation on ${accounts.length} account(s)...`);
 
   const { sendTokenExpiredAlert } = require("./lib/telegram");
@@ -159,7 +160,9 @@ async function validateAccountsTokenStatus(accounts) {
       } catch (err) {
         console.warn(`  ⚠️ Token validation failed for ${acc.accountId} (${acc.email || "N/A"}): ${err.message}`);
         await updateAccountStatus(acc.accountId, ACCOUNT_STATUS.FAILED, err.message).catch(() => {});
-        await sendTokenExpiredAlert(acc.accountId, acc.email, err.message).catch(() => {});
+        if (!silent) {
+          await sendTokenExpiredAlert(acc.accountId, acc.email, err.message).catch(() => {});
+        }
         return { ok: false, accountId: acc.accountId, error: err.message };
       }
     })
@@ -386,8 +389,8 @@ async function runDaemonMode(initialAccounts) {
       await updateAccountStatus(acc.accountId, acc.status).catch(() => {});
     }
 
-    // Perform Fast Parallel Token Audit Scan on Startup
-    await validateAccountsTokenStatus(bootAccounts);
+    // Perform Fast Parallel Token Audit Scan on Startup (silent mode - consolidated into single boot card)
+    await validateAccountsTokenStatus(bootAccounts, { silent: true });
   } else {
     console.log("ℹ️ [Firestore Hydration] 0 accounts found in Cloud DB. Engine active in passive waiting mode.");
   }
